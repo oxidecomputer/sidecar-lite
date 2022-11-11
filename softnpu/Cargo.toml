@@ -1,0 +1,18 @@
+[package]
+name = "sidecar-lite"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "sidecar_lite"
+crate_type = ["dylib"]
+
+[dependencies]
+p4rs = { git = "https://github.com/oxidecomputer/p4" }
+#p4rs = { path = "/home/ry/src/p4/lang/p4rs" }
+p4-macro = { git = "https://github.com/oxidecomputer/p4" }
+#p4-macro = { path = "/home/ry/src/p4/lang/p4-macro" }
+num = "0.4"
+bitvec = "1.0"
+colored = "2.0"
+usdt = { git = "https://github.com/oxidecomputer/usdt" }
