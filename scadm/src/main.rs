@@ -1,23 +1,19 @@
 // Copyright 2022 Oxide Computer Company
 
 use p4rs::TableEntry;
-use p9ds::proto::{P9Version, Rclunk, Rwrite, Tclunk, Twrite, Version};
-use p9kp::Client;
-use slog::{Drain, Logger};
 use std::collections::BTreeMap;
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::Read;
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::os::unix::io::AsRawFd;
-use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use devinfo::{get_devices, DiPropValue};
-use indicatif::{ProgressBar, ProgressStyle};
+use macaddr::MacAddr6;
 use softnpu::mgmt::{
     ManagementRequest, ManagementResponse, TableAdd, TableRemove,
 };
+use softnpu::p9::load_program;
 use tokio::net::UnixDatagram;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -121,7 +117,7 @@ enum Commands {
         /// Port to set MAC for.
         port: u16,
         /// The MAC address.
-        mac: MacAddr,
+        mac: MacAddr6,
     },
 
     /// Clear a port's MAC address.
@@ -131,13 +127,13 @@ enum Commands {
     PortCount,
 
     /// Add a static NDP entry
-    AddNdpEntry { l3: Ipv6Addr, l2: MacAddr },
+    AddNdpEntry { l3: Ipv6Addr, l2: MacAddr6 },
 
     /// Remove a static NDP entry
     RemoveNdpEntry { l3: Ipv6Addr },
 
     /// Add a static ARP entry
-    AddArpEntry { l3: Ipv4Addr, l2: MacAddr },
+    AddArpEntry { l3: Ipv4Addr, l2: MacAddr6 },
 
     /// Remove a static ARP entry
     RemoveArpEntry { l3: Ipv4Addr },
@@ -158,7 +154,7 @@ enum Commands {
         /// VNI to encapsulate packets onto.
         vni: u32,
         /// Mac address to use for inner-packet L2 destination.
-        mac: MacAddr,
+        mac: MacAddr6,
     },
 
     /// Remove an IPv6 NAT entry
@@ -177,7 +173,7 @@ enum Commands {
         /// VNI to encapsulate packets onto.
         vni: u32,
         /// Mac address to use for inner-packet L2 destination.
-        mac: MacAddr,
+        mac: MacAddr6,
     },
 
     /// Remove an IPv4 NAT entry
@@ -187,7 +183,7 @@ enum Commands {
     AddProxyArp {
         begin: Ipv4Addr,
         end: Ipv4Addr,
-        mac: MacAddr,
+        mac: MacAddr6,
     },
 
     /// Remove a proxy ARP entry.
@@ -195,31 +191,6 @@ enum Commands {
 
     /// Load a program onto the SoftNPU ASIC emulator
     LoadProgram { path: String },
-}
-
-#[derive(Debug, Clone)]
-struct MacAddr(pub [u8; 6]);
-
-impl std::str::FromStr for MacAddr {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split(':').collect();
-        if parts.len() != 6 {
-            return Err("Expected mac in the form aa:bb:cc:dd:ee:ff".into());
-        }
-        let mut result = MacAddr([0u8; 6]);
-        for (i, p) in parts.iter().enumerate() {
-            result.0[i] = match u8::from_str_radix(p, 16) {
-                Ok(n) => n,
-                Err(_) => {
-                    return Err(
-                        "Expected mac in the form aa:bb:cc:dd:ee:ff".into()
-                    );
-                }
-            }
-        }
-        Ok(result)
-    }
 }
 
 const ROUTER_V4: &str = "router.router_v4";
@@ -336,7 +307,7 @@ async fn main() {
             let mut parameter_data: Vec<u8> = target.octets().into();
             let vni_bits = vni.to_be_bytes();
             parameter_data.extend_from_slice(&vni_bits[1..4]);
-            parameter_data.extend_from_slice(&mac.0);
+            parameter_data.extend_from_slice(mac.as_bytes());
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
@@ -384,7 +355,7 @@ async fn main() {
             let mut parameter_data: Vec<u8> = target.octets().into();
             let vni_bits = vni.to_be_bytes();
             parameter_data.extend_from_slice(&vni_bits[1..4]);
-            parameter_data.extend_from_slice(&mac.0);
+            parameter_data.extend_from_slice(mac.as_bytes());
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
@@ -464,7 +435,7 @@ async fn main() {
 
         Commands::SetMac { port, ref mac } => {
             let keyset_data: Vec<u8> = port.to_be_bytes().to_vec();
-            let parameter_data: Vec<u8> = mac.0.into();
+            let parameter_data: Vec<u8> = mac.as_bytes().into();
             send(
                 ManagementRequest::TableAdd(TableAdd {
                     table: MAC_REWRITE.into(),
@@ -531,7 +502,7 @@ async fn main() {
 
         Commands::AddNdpEntry { l3, ref l2 } => {
             let keyset_data: Vec<u8> = l3.octets().into();
-            let parameter_data: Vec<u8> = l2.0.into();
+            let parameter_data: Vec<u8> = l2.as_bytes().into();
             send(
                 ManagementRequest::TableAdd(TableAdd {
                     table: RESOLVER_V6.into(),
@@ -557,7 +528,7 @@ async fn main() {
 
         Commands::AddArpEntry { l3, ref l2 } => {
             let keyset_data: Vec<u8> = l3.octets().into();
-            let parameter_data: Vec<u8> = l2.0.into();
+            let parameter_data: Vec<u8> = l2.as_bytes().into();
             send(
                 ManagementRequest::TableAdd(TableAdd {
                     table: RESOLVER_V4.into(),
@@ -657,7 +628,7 @@ async fn main() {
             let mut keyset_data: Vec<u8> = begin.octets().into();
             keyset_data.extend_from_slice(&end.octets());
 
-            let parameter_data: Vec<u8> = mac.0.into();
+            let parameter_data: Vec<u8> = mac.as_bytes().into();
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
@@ -689,99 +660,9 @@ async fn main() {
             if cli.mode == Mode::Standalone {
                 panic!("load program not supported in standalone mode");
             }
-            let mut file = File::open(path).unwrap();
-            let mut buf = Vec::new();
-            file.read_to_end(&mut buf).unwrap();
-
-            let pb = ProgressBar::new(buf.len() as u64);
-            let sty = ProgressStyle::with_template(
-                "[{elapsed_precise}] \
-                {bar:40.cyan/blue} \
-                {bytes}/{total_bytes} \
-                {msg}",
-            )
-            .unwrap()
-            .progress_chars("##-");
-
-            pb.set_style(sty);
-
-            let mut client = get_p9_client().await.unwrap();
-
-            let mut i = 0;
-            let stride = 0x10000 - 23;
-            let end = buf.len();
-            loop {
-                let j = std::cmp::min(i + stride, end);
-                let req = Twrite::new(buf[i..j].to_owned(), 0, i as u64);
-                let resp: Rwrite = client.send(&req).await.unwrap();
-                pb.inc(resp.count as u64);
-                i += stride;
-                if i >= end {
-                    break;
-                }
-            }
-            pb.finish_with_message("done");
-            println!();
-
-            let req = Tclunk::new(0);
-            let _resp: Rclunk = client.send(&req).await.unwrap();
+            load_program(&path).await.expect("load program");
         }
     }
-}
-
-fn logger() -> Logger {
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let drain = slog_envlogger::new(drain).fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-    Logger::root(drain, slog::o!())
-}
-
-async fn get_p9_client() -> Option<p9kp::ChardevClient> {
-    let devices = get_devices(false).unwrap();
-
-    // look for libvirt/vritfs device
-    let vendor_id = 0x1af4;
-    let device_id = 0x1009;
-
-    for (device_key, dev_info) in devices {
-        let vendor_match = match dev_info.props.get("vendor-id") {
-            Some(value) => value.matches_int(vendor_id),
-            _ => false,
-        };
-        let dev_match = match dev_info.props.get("device-id") {
-            Some(value) => value.matches_int(device_id),
-            _ => false,
-        };
-        let unit_address = match dev_info.props.get("unit-address") {
-            Some(DiPropValue::Strings(vs)) => {
-                if vs.is_empty() {
-                    continue;
-                }
-                vs[0].clone()
-            }
-            _ => continue,
-        };
-        if vendor_match && dev_match {
-            let dev_path = format!(
-                "/devices/pci@0,0/{}@{}:9p",
-                device_key.node_name, unit_address,
-            );
-            let pb = PathBuf::from(dev_path);
-            let mut client = p9kp::ChardevClient::new(pb, 0x10000, logger());
-
-            let mut ver = Version::new(P9Version::V2000P4);
-            ver.msize = 0x10000;
-            let server_version =
-                client.send::<Version, Version>(&ver).await.unwrap();
-            if Some(P9Version::V2000P4)
-                == P9Version::from_str(&server_version.version)
-            {
-                return Some(client);
-            }
-        }
-    }
-    None
 }
 
 fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {

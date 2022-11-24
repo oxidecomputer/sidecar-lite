@@ -312,7 +312,7 @@ dependencies = [
 [[package]]
 name = "dof"
 version = "0.1.5"
-source = "git+https://github.com/oxidecomputer/usdt#eac0fe5f03c3fbf23468ead5cb140f62d51ac3f3"
+source = "git+https://github.com/oxidecomputer/usdt#eb7bcfae4cb7fde288c02b0af2c846aa1847f08d"
 dependencies = [
  "thiserror",
  "zerocopy",
@@ -320,8 +320,8 @@ dependencies = [
 
 [[package]]
 name = "dtrace-parser"
-version = "0.1.12"
-source = "git+https://github.com/oxidecomputer/usdt#eac0fe5f03c3fbf23468ead5cb140f62d51ac3f3"
+version = "0.1.14"
+source = "git+https://github.com/oxidecomputer/usdt#eb7bcfae4cb7fde288c02b0af2c846aa1847f08d"
 dependencies = [
  "pest",
  "pest_derive",
@@ -497,6 +497,12 @@ checksum = "abb12e687cfb44aa40f41fc3978ef76448f9b6038cad6aef4259d3c095a2382e"
 dependencies = [
  "cfg-if",
 ]
+
+[[package]]
+name = "macaddr"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "baee0bbc17ce759db233beb01648088061bf678383130602a298e6998eedb2d8"
 
 [[package]]
 name = "memchr"
@@ -691,7 +697,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#c48387a466cbec7bee3d11cbc89fe670943c610b"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#10eedf89eef4d4f7e646f9a3af85cc50d3303280"
 dependencies = [
  "bitvec",
  "colored",
@@ -973,20 +979,13 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "clap 4.0.22",
- "devinfo",
  "errno",
- "indicatif",
  "libc",
+ "macaddr",
  "num",
  "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
- "p9ds",
- "p9kp",
  "serde",
  "serde_json",
- "slog",
- "slog-async",
- "slog-envlogger",
- "slog-term",
  "softnpu",
  "tokio",
 ]
@@ -1169,13 +1168,17 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#ebeecf66a5d40cd59767167faf79920764f78263"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#55c78a398cc85a14c07ba9bb9825cc583acba37e"
 dependencies = [
  "anyhow",
  "clap 4.0.22",
+ "devinfo",
  "dlpi",
+ "indicatif",
  "libloading",
  "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
+ "p9ds",
+ "p9kp",
  "serde",
  "serde_json",
  "slog",
@@ -1400,8 +1403,8 @@ checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
 
 [[package]]
 name = "usdt"
-version = "0.3.2"
-source = "git+https://github.com/oxidecomputer/usdt#eac0fe5f03c3fbf23468ead5cb140f62d51ac3f3"
+version = "0.3.4"
+source = "git+https://github.com/oxidecomputer/usdt#eb7bcfae4cb7fde288c02b0af2c846aa1847f08d"
 dependencies = [
  "dtrace-parser",
  "serde",
@@ -1412,8 +1415,8 @@ dependencies = [
 
 [[package]]
 name = "usdt-attr-macro"
-version = "0.3.2"
-source = "git+https://github.com/oxidecomputer/usdt#eac0fe5f03c3fbf23468ead5cb140f62d51ac3f3"
+version = "0.3.4"
+source = "git+https://github.com/oxidecomputer/usdt#eb7bcfae4cb7fde288c02b0af2c846aa1847f08d"
 dependencies = [
  "dtrace-parser",
  "proc-macro2",
@@ -1425,8 +1428,8 @@ dependencies = [
 
 [[package]]
 name = "usdt-impl"
-version = "0.3.2"
-source = "git+https://github.com/oxidecomputer/usdt#eac0fe5f03c3fbf23468ead5cb140f62d51ac3f3"
+version = "0.3.4"
+source = "git+https://github.com/oxidecomputer/usdt#eb7bcfae4cb7fde288c02b0af2c846aa1847f08d"
 dependencies = [
  "byteorder",
  "dof",
@@ -1444,8 +1447,8 @@ dependencies = [
 
 [[package]]
 name = "usdt-macro"
-version = "0.3.2"
-source = "git+https://github.com/oxidecomputer/usdt#eac0fe5f03c3fbf23468ead5cb140f62d51ac3f3"
+version = "0.3.4"
+source = "git+https://github.com/oxidecomputer/usdt#eb7bcfae4cb7fde288c02b0af2c846aa1847f08d"
 dependencies = [
  "dtrace-parser",
  "proc-macro2",
