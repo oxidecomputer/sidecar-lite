@@ -6,12 +6,12 @@ use std::fs::OpenOptions;
 use std::io::Read;
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::os::unix::io::AsRawFd;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use macaddr::MacAddr6;
 use softnpu::mgmt::{
-    ManagementRequest, ManagementResponse, TableAdd, TableRemove,
+    dump_tables_propolis, ManagementRequest, ManagementResponse, TableAdd,
+    TableRemove,
 };
 use softnpu::p9::load_program;
 use tokio::net::UnixDatagram;
@@ -552,73 +552,24 @@ async fn main() {
             .await;
         }
 
-        Commands::DumpState => {
-            match cli.mode {
-                Mode::Standalone => {
-                    let uds = bind_uds(&cli);
-                    let j = tokio::spawn(async move {
-                        if let ManagementResponse::DumpResponse(ref tables) =
-                            recv_uds(uds).await
-                        {
-                            dump_tables(tables);
-                        }
-                    });
-                    send(ManagementRequest::DumpRequest, &cli).await;
-                    j.await.unwrap();
-                }
-                Mode::Propolis => {
-                    let mut f = OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .open("/dev/tty03")
-                        .unwrap();
-
-                    let fd = f.as_raw_fd();
-                    unsafe {
-                        let mut term: libc::termios = std::mem::zeroed();
-                        if libc::tcgetattr(fd, &mut term) != 0 {
-                            println!("tcgetattr failed, dump may hang");
-                        }
-                        term.c_lflag &= !(libc::ICANON
-                            | libc::ECHO
-                            | libc::ECHOE
-                            | libc::ISIG);
-                        if libc::tcsetattr(fd, libc::TCSANOW, &term) != 0 {
-                            println!("tcsetattr failed, dump may hang");
-                        }
+        Commands::DumpState => match cli.mode {
+            Mode::Standalone => {
+                let uds = bind_uds(&cli);
+                let j = tokio::spawn(async move {
+                    if let ManagementResponse::DumpResponse(ref tables) =
+                        recv_uds(uds).await
+                    {
+                        dump_tables(tables);
                     }
-
-                    let msg = ManagementRequest::DumpRequest;
-                    let mut buf = Vec::new();
-                    buf.push(0b11100101);
-                    buf.extend_from_slice(&serde_json::to_vec(&msg).unwrap());
-                    buf.push(b'\n');
-
-                    f.write_all(&buf).unwrap();
-                    f.sync_all().unwrap();
-
-                    let mut buf = [0u8; 10240];
-                    let mut i = 0;
-                    loop {
-                        let n = f.read(&mut buf[i..]).unwrap();
-                        i += n;
-                        //XXX
-                        let s =
-                            String::from_utf8_lossy(&buf[..i - 1]).to_string();
-                        println!("PATIAL ({}): {}", s.len(), s);
-                        if buf[i - 1] == b'\n' {
-                            break;
-                        }
-                    }
-                    let s = String::from_utf8_lossy(&buf[..i - 1]).to_string();
-
-                    //let mut d = TableDump::default();
-
-                    let d = serde_json::from_str(&s).unwrap();
-                    dump_tables(&d);
-                }
+                });
+                send(ManagementRequest::DumpRequest, &cli).await;
+                j.await.unwrap();
             }
-        }
+            Mode::Propolis => {
+                let d = dump_tables_propolis();
+                dump_tables(&d);
+            }
+        },
 
         Commands::AddProxyArp {
             begin,

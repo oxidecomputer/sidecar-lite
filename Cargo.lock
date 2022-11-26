@@ -1168,13 +1168,14 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#55c78a398cc85a14c07ba9bb9825cc583acba37e"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#1a97b58cceba340cf2fb874dd4bf89e0d259dbc4"
 dependencies = [
  "anyhow",
  "clap 4.0.22",
  "devinfo",
  "dlpi",
  "indicatif",
+ "libc",
  "libloading",
  "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
  "p9ds",
