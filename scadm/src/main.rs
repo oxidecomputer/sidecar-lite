@@ -193,18 +193,18 @@ enum Commands {
     LoadProgram { path: String },
 }
 
-const ROUTER_V4: &str = "router.router_v4";
-const ROUTER_V6: &str = "router.router_v6";
-const LOCAL_V6: &str = "local.local_v6";
-const LOCAL_V4: &str = "local.local_v4";
-const NAT_V4: &str = "nat.nat_v4";
-const NAT_V6: &str = "nat.nat_v6";
-const NAT_ICMP_V6: &str = "nat.nat_icmp_v6";
-const NAT_ICMP_V4: &str = "nat.nat_icmp_v4";
-const RESOLVER_V4: &str = "resolver.resolver_v4";
-const RESOLVER_V6: &str = "resolver.resolver_v6";
-const MAC_REWRITE: &str = "mac.mac_rewrite";
-const PROXY_ARP: &str = "pxarp.proxy_arp";
+const ROUTER_V4: &str = "ingress.router.router_v4";
+const ROUTER_V6: &str = "ingress.router.router_v6";
+const LOCAL_V6: &str = "ingress.local.local_v6";
+const LOCAL_V4: &str = "ingress.local.local_v4";
+const NAT_V4: &str = "ingress.nat.nat_v4";
+const NAT_V6: &str = "ingress.nat.nat_v6";
+const NAT_ICMP_V6: &str = "ingress.nat.nat_icmp_v6";
+const NAT_ICMP_V4: &str = "ingress.nat.nat_icmp_v4";
+const RESOLVER_V4: &str = "ingress.resolver.resolver_v4";
+const RESOLVER_V6: &str = "ingress.resolver.resolver_v6";
+const MAC_REWRITE: &str = "ingress.mac.mac_rewrite";
+const PROXY_ARP: &str = "ingress.pxarp.proxy_arp";
 
 #[tokio::main]
 async fn main() {

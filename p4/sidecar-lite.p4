@@ -1,12 +1,13 @@
 // Copyright 2022 Oxide Computer Company
 
-#include <p4/core.p4>
-#include <p4/softnpu.p4>
-#include <p4/headers.p4>
+#include <core.p4>
+#include <softnpu.p4>
+#include <headers.p4>
 
 SoftNPU(
     parse(),
-    ingress()
+    ingress(),
+    egress()
 ) main;
 
 struct headers_t {
@@ -52,7 +53,7 @@ struct headers_t {
 parser parse(
     packet_in pkt,
     out headers_t hdr,
-    inout IngressMetadata ingress,
+    inout ingress_metadata_t ingress,
 ){
     state start {
         pkt.extract(hdr.ethernet);
@@ -209,8 +210,8 @@ parser parse(
 
 control nat_ingress(
     inout headers_t hdr,
-    inout IngressMetadata ingress,
-    inout EgressMetadata egress,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
 ) {
 
     Checksum() csum;
@@ -409,7 +410,7 @@ control local(
 
 control resolver(
     inout headers_t hdr,
-    inout EgressMetadata egress,
+    inout egress_metadata_t egress,
 ) {
     action rewrite_dst(bit<48> dst) {
         hdr.ethernet.dst = dst;
@@ -449,8 +450,8 @@ control resolver(
 
 control router(
     inout headers_t hdr,
-    inout IngressMetadata ingress,
-    inout EgressMetadata egress,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
 ) {
     action drop() { }
 
@@ -499,7 +500,7 @@ control router(
 
 control mac_rewrite(
     inout headers_t hdr,
-    inout EgressMetadata egress,
+    inout egress_metadata_t egress,
 ) {
 
     action rewrite(bit<48> mac) {
@@ -520,8 +521,8 @@ control mac_rewrite(
 
 control proxy_arp(
     inout headers_t hdr,
-    inout IngressMetadata ingress,
-    inout EgressMetadata egress,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
 ) {
     action proxy_arp_reply(bit<48> mac) {
         egress.port = ingress.port;
@@ -553,8 +554,8 @@ control proxy_arp(
 
 control ingress(
     inout headers_t hdr,
-    inout IngressMetadata ingress,
-    inout EgressMetadata egress,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
 ) {
     local() local;
     router() router;
@@ -682,4 +683,11 @@ control ingress(
 
         mac.apply(hdr, egress);
     }
+}
+
+control egress(
+    inout headers_t hdr,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
+) {
 }
