@@ -746,16 +746,16 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
     println!("proxy_arp:");
     for e in table.get(PROXY_ARP).unwrap() {
         let begin = Ipv4Addr::new(
-            e.keyset_data[0],
-            e.keyset_data[1],
-            e.keyset_data[2],
             e.keyset_data[3],
+            e.keyset_data[2],
+            e.keyset_data[1],
+            e.keyset_data[0],
         );
         let end = Ipv4Addr::new(
-            e.keyset_data[4],
-            e.keyset_data[5],
-            e.keyset_data[6],
             e.keyset_data[7],
+            e.keyset_data[6],
+            e.keyset_data[5],
+            e.keyset_data[4],
         );
 
         let m = &e.parameter_data;
