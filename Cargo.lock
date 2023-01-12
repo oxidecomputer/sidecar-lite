@@ -751,7 +751,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4#10eedf89eef4d4f7e646f9a3af85cc50d3303280"
+source = "git+https://github.com/oxidecomputer/p4#4c07c8a9677d5048721cb7090a6b1b5d03f5a7d6"
 dependencies = [
  "bitvec",
  "colored",

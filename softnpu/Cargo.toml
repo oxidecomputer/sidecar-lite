@@ -9,9 +9,7 @@ crate_type = ["dylib"]
 
 [dependencies]
 p4rs = { git = "https://github.com/oxidecomputer/p4" }
-#p4rs = { path = "/home/ry/src/p4/lang/p4rs" }
 p4-macro = { git = "https://github.com/oxidecomputer/p4" }
-#p4-macro = { path = "/home/ry/src/p4/lang/p4-macro" }
 num = "0.4"
 bitvec = "1.0"
 colored = "2.0"
