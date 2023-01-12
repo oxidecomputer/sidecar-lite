@@ -699,7 +699,7 @@ checksum = "9b7820b9daea5457c9f21c69448905d723fbd21136ccf521748f23fd49e723ee"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4#10eedf89eef4d4f7e646f9a3af85cc50d3303280"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#4c07c8a9677d5048721cb7090a6b1b5d03f5a7d6"
 dependencies = [
  "colored",
  "regex",
@@ -708,7 +708,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4#10eedf89eef4d4f7e646f9a3af85cc50d3303280"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#4c07c8a9677d5048721cb7090a6b1b5d03f5a7d6"
 dependencies = [
  "p4",
  "p4-rust",
@@ -721,7 +721,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4#10eedf89eef4d4f7e646f9a3af85cc50d3303280"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#4c07c8a9677d5048721cb7090a6b1b5d03f5a7d6"
 dependencies = [
  "p4",
  "prettyplease",
@@ -735,23 +735,6 @@ dependencies = [
 name = "p4rs"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/p4?branch=main#10eedf89eef4d4f7e646f9a3af85cc50d3303280"
-dependencies = [
- "bitvec",
- "colored",
- "num",
- "serde",
- "serde_json",
- "slog",
- "slog-async",
- "slog-envlogger",
- "slog-term",
- "usdt",
-]
-
-[[package]]
-name = "p4rs"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4#4c07c8a9677d5048721cb7090a6b1b5d03f5a7d6"
 dependencies = [
  "bitvec",
  "colored",
@@ -1034,7 +1017,7 @@ dependencies = [
  "libc",
  "macaddr",
  "num",
- "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
+ "p4rs",
  "serde",
  "serde_json",
  "softnpu",
@@ -1119,7 +1102,7 @@ dependencies = [
  "colored",
  "num",
  "p4-macro",
- "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4)",
+ "p4rs",
  "usdt",
 ]
 
@@ -1228,7 +1211,7 @@ dependencies = [
  "indicatif",
  "libc",
  "libloading",
- "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
+ "p4rs",
  "p9ds",
  "p9kp",
  "serde",
