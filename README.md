@@ -1,4 +1,4 @@
-#Sidecar Lite
+# Sidecar Lite
 
 Sidecar lite is a port of the switch P4 code that interconnects the Oxide
 platform. This port primarily for running the code in various SoftNpu-based
