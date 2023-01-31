@@ -466,7 +466,7 @@ async fn main() {
                     if let ManagementResponse::RadixResponse(n) =
                         recv_uds(uds).await
                     {
-                        println!("{}", n)
+                        println!("{n}")
                     }
                 });
                 send(ManagementRequest::RadixRequest, &cli).await;
@@ -496,7 +496,7 @@ async fn main() {
                     .unwrap()
                     .parse()
                     .unwrap();
-                println!("{:?}", radix);
+                println!("{radix:?}");
             }
         },
 
@@ -620,39 +620,39 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
     println!("local v6:");
     for e in table.get(LOCAL_V6).unwrap() {
         if let Some(a) = get_addr(&e.keyset_data, true) {
-            println!("{}", a)
+            println!("{a}")
         }
     }
     println!("local v4:");
     for e in table.get(LOCAL_V4).unwrap() {
         if let Some(a) = get_addr(&e.keyset_data, true) {
-            println!("{}", a)
+            println!("{a}")
         }
     }
 
     println!("router v6:");
     for e in table.get(ROUTER_V6).unwrap() {
         let tgt = match get_addr_subnet(&e.keyset_data) {
-            Some((a, m)) => format!("{}/{}", a, m),
+            Some((a, m)) => format!("{a}/{m}"),
             None => "?".into(),
         };
         let gw = match get_port_addr(&e.parameter_data) {
-            Some((a, p)) => format!("{} ({})", a, p),
+            Some((a, p)) => format!("{a} ({p})"),
             None => "?".into(),
         };
-        println!("{} -> {}", tgt, gw);
+        println!("{tgt} -> {gw}");
     }
     println!("router v4:");
     for e in table.get(ROUTER_V4).unwrap() {
         let tgt = match get_addr_subnet(&e.keyset_data) {
-            Some((a, m)) => format!("{}/{}", a, m),
+            Some((a, m)) => format!("{a}/{m}"),
             None => "?".into(),
         };
         let gw = match get_port_addr(&e.parameter_data) {
-            Some((a, p)) => format!("{} ({})", a, p),
+            Some((a, p)) => format!("{a} ({p})"),
             None => "?".into(),
         };
-        println!("{} -> {}", tgt, gw);
+        println!("{tgt} -> {gw}");
     }
 
     println!("resolver v4:");
@@ -668,7 +668,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             ),
             None => "?".into(),
         };
-        println!("{} -> {}", l3, l2);
+        println!("{l3} -> {l2}");
     }
 
     println!("resolver v6:");
@@ -684,14 +684,14 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             ),
             None => "?".into(),
         };
-        println!("{} -> {}", l3, l2);
+        println!("{l3} -> {l2}");
     }
 
     println!("nat_v4:");
     for e in table.get(NAT_V4).unwrap() {
         let dst_nat_id = match get_addr_nat_id(&e.keyset_data) {
             Some((dst, nat_start, nat_end)) => {
-                format!("{} {}/{}", dst, nat_start, nat_end,)
+                format!("{dst} {nat_start}/{nat_end}",)
             }
             None => "?".into(),
         };
@@ -702,13 +702,13 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             ),
             None => "?".into(),
         };
-        println!("{} -> {}", dst_nat_id, target);
+        println!("{dst_nat_id} -> {target}");
     }
     println!("nat_v6:");
     for e in table.get(NAT_V6).unwrap() {
         let dst_nat_id = match get_addr_nat_id(&e.keyset_data) {
             Some((dst, nat_start, nat_end)) => {
-                format!("{} {}/{}", dst, nat_start, nat_end,)
+                format!("{dst} {nat_start}/{nat_end}",)
             }
             None => "?".into(),
         };
@@ -719,7 +719,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             ),
             None => "?".into(),
         };
-        println!("{} -> {}", dst_nat_id, target);
+        println!("{dst_nat_id} -> {target}");
     }
 
     println!("port_mac:");
@@ -731,7 +731,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
             m[0], m[1], m[2], m[3], m[4], m[5],
         );
-        println!("{}: {}", port, mac);
+        println!("{port}: {mac}");
     }
 
     println!("icmp_v6:");
@@ -764,7 +764,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
             m[0], m[1], m[2], m[3], m[4], m[5],
         );
-        println!("{}/{}: {}", begin, end, mac);
+        println!("{begin}/{end}: {mac}");
     }
 }
 
@@ -794,7 +794,7 @@ fn get_addr(data: &[u8], rev: bool) -> Option<IpAddr> {
             Some(Ipv6Addr::from(buf).into())
         }
         _ => {
-            println!("expected address, found: {:x?}", data);
+            println!("expected address, found: {data:x?}");
             None
         }
     }
@@ -804,7 +804,7 @@ fn get_mac(data: &[u8]) -> Option<[u8; 6]> {
     match data.len() {
         6 => Some(data.try_into().unwrap()),
         _ => {
-            println!("expected mac address, found: {:x?}", data);
+            println!("expected mac address, found: {data:x?}");
             None
         }
     }
@@ -815,7 +815,7 @@ fn get_addr_subnet(data: &[u8]) -> Option<(IpAddr, u8)> {
         5 => Some((get_addr(&data[..4], true)?, data[4])),
         17 => Some((get_addr(&data[..16], true)?, data[16])),
         _ => {
-            println!("expected [address, subnet], found: {:x?}", data);
+            println!("expected [address, subnet], found: {data:x?}");
             None
         }
     }
@@ -834,7 +834,7 @@ fn get_addr_vni_mac(data: &[u8]) -> Option<(IpAddr, u32, [u8; 6])> {
             data[19..25].try_into().ok()?,
         )),
         _ => {
-            println!("expected [address, vni, mac], found: {:x?}", data);
+            println!("expected [address, vni, mac], found: {data:x?}");
             None
         }
     }
@@ -853,7 +853,7 @@ fn get_addr_nat_id(data: &[u8]) -> Option<(IpAddr, u16, u16)> {
             u16::from_be_bytes([data[18], data[19]]),
         )),
         _ => {
-            println!("expected [address, nat_id], found: {:x?}", data);
+            println!("expected [address, nat_id], found: {data:x?}");
             None
         }
     }
@@ -870,7 +870,7 @@ fn get_port_addr(data: &[u8]) -> Option<(IpAddr, u16)> {
             u16::from_be_bytes([data[0], data[1]]),
         )),
         _ => {
-            println!("expected [port, address], found: {:x?}", data);
+            println!("expected [port, address], found: {data:x?}");
             None
         }
     }

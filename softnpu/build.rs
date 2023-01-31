@@ -6,6 +6,6 @@ fn main() {
         "../p4/headers.p4",
     ];
     for x in src {
-        println!("cargo:rerun-if-changed={}", x);
+        println!("cargo:rerun-if-changed={x}");
     }
 }
