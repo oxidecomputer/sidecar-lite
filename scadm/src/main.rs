@@ -841,12 +841,12 @@ fn get_addr_vni_mac(data: &[u8]) -> Option<(IpAddr, u32, [u8; 6])> {
 fn get_addr_nat_id(data: &[u8]) -> Option<(IpAddr, u16, u16)> {
     match data.len() {
         8 => Some((
-            get_addr(&data[..4], false)?,
+            get_addr(&data[..4], true)?,
             u16::from_be_bytes([data[4], data[5]]),
             u16::from_be_bytes([data[6], data[7]]),
         )),
         20 => Some((
-            get_addr(&data[..16], false)?,
+            get_addr(&data[..16], true)?,
             u16::from_be_bytes([data[16], data[17]]),
             u16::from_be_bytes([data[18], data[19]]),
         )),
