@@ -18,6 +18,10 @@ set -o errexit
 set -o pipefail
 set -o xtrace
 
+# Temporary fix for Cargo isatty error
+curl -Lo /tmp/isattyfix.so 'https://buildomat.eng.oxide.computer/wg/0/artefact/01GQQZ09XNZCV9DKAY87YC6JAA/CakFovx5MsPyjDTXsT0f9qN3Pxh4jm6g754HXheja7CVAEsZ/01GQQZ0KG48F651EJ66FRX28JH/01GQQZ2YSFCWKEH7V3WNBS4M6Z/isattyfix.so'
+export LD_PRELOAD_64=/tmp/isattyfix.so
+
 cargo --version
 rustc --version
 
