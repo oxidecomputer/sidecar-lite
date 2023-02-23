@@ -619,13 +619,13 @@ async fn main() {
 fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
     println!("local v6:");
     for e in table.get(LOCAL_V6).unwrap() {
-        if let Some(a) = get_addr(&e.keyset_data, true) {
+        if let Some(a) = get_addr(&e.keyset_data, false) {
             println!("{a}")
         }
     }
     println!("local v4:");
     for e in table.get(LOCAL_V4).unwrap() {
-        if let Some(a) = get_addr(&e.keyset_data, true) {
+        if let Some(a) = get_addr(&e.keyset_data, false) {
             println!("{a}")
         }
     }
@@ -657,7 +657,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
 
     println!("resolver v4:");
     for e in table.get(RESOLVER_V4).unwrap() {
-        let l3 = match get_addr(&e.keyset_data, true) {
+        let l3 = match get_addr(&e.keyset_data, false) {
             Some(a) => a.to_string(),
             None => "?".into(),
         };
@@ -673,7 +673,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
 
     println!("resolver v6:");
     for e in table.get(RESOLVER_V6).unwrap() {
-        let l3 = match get_addr(&e.keyset_data, true) {
+        let l3 = match get_addr(&e.keyset_data, false) {
             Some(a) => a.to_string(),
             None => "?".into(),
         };
@@ -812,8 +812,8 @@ fn get_mac(data: &[u8]) -> Option<[u8; 6]> {
 
 fn get_addr_subnet(data: &[u8]) -> Option<(IpAddr, u8)> {
     match data.len() {
-        5 => Some((get_addr(&data[..4], true)?, data[4])),
-        17 => Some((get_addr(&data[..16], true)?, data[16])),
+        5 => Some((get_addr(&data[..4], false)?, data[4])),
+        17 => Some((get_addr(&data[..16], false)?, data[16])),
         _ => {
             println!("expected [address, subnet], found: {data:x?}");
             None
@@ -824,12 +824,12 @@ fn get_addr_subnet(data: &[u8]) -> Option<(IpAddr, u8)> {
 fn get_addr_vni_mac(data: &[u8]) -> Option<(IpAddr, u32, [u8; 6])> {
     match data.len() {
         13 => Some((
-            get_addr(&data[..4], false)?,
+            get_addr(&data[..4], true)?,
             u32::from_be_bytes([0, data[4], data[5], data[6]]),
             data[7..13].try_into().ok()?,
         )),
         25 => Some((
-            get_addr(&data[..16], false)?,
+            get_addr(&data[..16], true)?,
             u32::from_be_bytes([0, data[16], data[17], data[18]]),
             data[19..25].try_into().ok()?,
         )),
@@ -845,7 +845,10 @@ fn get_addr_nat_id(data: &[u8]) -> Option<(IpAddr, u16, u16)> {
         8 => Some((
             get_addr(&data[..4], false)?,
             u16::from_be_bytes([data[4], data[5]]),
-            u16::from_be_bytes([data[6], data[7]]),
+            // TODO: correctness
+            // WHAT?!? Does this mean the entry is being stored
+            // backwards in the table?
+            u16::from_be_bytes([data[7], data[6]]),
         )),
         20 => Some((
             get_addr(&data[..16], false)?,
@@ -862,11 +865,11 @@ fn get_addr_nat_id(data: &[u8]) -> Option<(IpAddr, u16, u16)> {
 fn get_port_addr(data: &[u8]) -> Option<(IpAddr, u16)> {
     match data.len() {
         6 => Some((
-            get_addr(&data[2..], false)?,
+            get_addr(&data[2..], true)?,
             u16::from_be_bytes([data[0], data[1]]),
         )),
         18 => Some((
-            get_addr(&data[2..], false)?,
+            get_addr(&data[2..], true)?,
             u16::from_be_bytes([data[0], data[1]]),
         )),
         _ => {
