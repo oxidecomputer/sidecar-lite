@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-p4rs = { git = "https://github.com/oxidecomputer/p4", branch = "main" }
+p4rs = { git = "https://github.com/oxidecomputer/p4", branch = "endian-roundup-part-2" }
 base64 = { version = "0.13" }
 clap = { version = "4", features = ["derive"] }
 libc = "0.2"
@@ -15,6 +15,6 @@ errno = "0.2"
 num = { version = "0.4.0", features = ["num-bigint"] }
 macaddr = "1.0.1"
 
-[dependencies.softnpu] 
+[dependencies.softnpu]
 git = "https://github.com/oxidecomputer/softnpu"
-branch = "main"
+branch = "endian-updates"

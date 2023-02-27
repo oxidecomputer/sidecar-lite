@@ -8,8 +8,8 @@ name = "sidecar_lite"
 crate_type = ["dylib"]
 
 [dependencies]
-p4rs = { git = "https://github.com/oxidecomputer/p4", branch = "main" }
-p4-macro = { git = "https://github.com/oxidecomputer/p4", branch = "main" }
+p4rs = { git = "https://github.com/oxidecomputer/p4", branch = "endian-roundup-part-2" }
+p4-macro = { git = "https://github.com/oxidecomputer/p4", branch = "endian-roundup-part-2" }
 num = "0.4"
 bitvec = "1.0"
 colored = "2.0"

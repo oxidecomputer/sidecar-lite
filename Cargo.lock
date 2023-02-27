@@ -712,7 +712,7 @@ checksum = "9b7820b9daea5457c9f21c69448905d723fbd21136ccf521748f23fd49e723ee"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#33ab5db8cc793b8285d83f04d1c1de5c3a429bb6"
+source = "git+https://github.com/oxidecomputer/p4?branch=endian-roundup-part-2#ee6078d9e1cfe77e4e57ff0468b245f3f46e9bed"
 dependencies = [
  "colored",
  "regex",
@@ -721,7 +721,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#33ab5db8cc793b8285d83f04d1c1de5c3a429bb6"
+source = "git+https://github.com/oxidecomputer/p4?branch=endian-roundup-part-2#ee6078d9e1cfe77e4e57ff0468b245f3f46e9bed"
 dependencies = [
  "p4",
  "p4-rust",
@@ -734,7 +734,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#33ab5db8cc793b8285d83f04d1c1de5c3a429bb6"
+source = "git+https://github.com/oxidecomputer/p4?branch=endian-roundup-part-2#ee6078d9e1cfe77e4e57ff0468b245f3f46e9bed"
 dependencies = [
  "p4",
  "prettyplease",
@@ -747,7 +747,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#33ab5db8cc793b8285d83f04d1c1de5c3a429bb6"
+source = "git+https://github.com/oxidecomputer/p4?branch=endian-roundup-part-2#ee6078d9e1cfe77e4e57ff0468b245f3f46e9bed"
 dependencies = [
  "bitvec",
  "colored",
@@ -1215,7 +1215,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#1560e561540424948e626065b220f9f8bcd312af"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=endian-updates#941d782cf20163546562090e76cd0ee247aa757b"
 dependencies = [
  "anyhow",
  "clap 4.1.1",
