@@ -596,8 +596,8 @@ async fn main() {
         }
 
         Commands::RemoveProxyArp { begin, end } => {
-            let mut keyset_data: Vec<u8>
-                = u32::from(begin).to_le_bytes().into();
+            let mut keyset_data: Vec<u8> =
+                u32::from(begin).to_le_bytes().into();
             keyset_data.extend_from_slice(&u32::from(end).to_le_bytes());
 
             send(
