@@ -220,7 +220,7 @@ async fn main() {
             let mut keyset_data: Vec<u8> = destination.octets().into();
             keyset_data.push(mask);
 
-            let mut parameter_data = port.to_be_bytes().to_vec();
+            let mut parameter_data = port.to_le_bytes().to_vec();
             let nexthop_data: Vec<u8> = nexthop.octets().into();
             parameter_data.extend_from_slice(&nexthop_data);
 
@@ -258,7 +258,7 @@ async fn main() {
             let mut keyset_data: Vec<u8> = destination.octets().into();
             keyset_data.push(mask);
 
-            let mut parameter_data = port.to_be_bytes().to_vec();
+            let mut parameter_data = port.to_le_bytes().to_vec();
             let nexthop_data: Vec<u8> = nexthop.octets().into();
             parameter_data.extend_from_slice(&nexthop_data);
 
@@ -301,11 +301,11 @@ async fn main() {
             }
 
             let mut keyset_data: Vec<u8> = dst.octets().into();
-            keyset_data.extend_from_slice(&begin.to_be_bytes());
-            keyset_data.extend_from_slice(&end.to_be_bytes());
+            keyset_data.extend_from_slice(&begin.to_le_bytes());
+            keyset_data.extend_from_slice(&end.to_le_bytes());
 
             let mut parameter_data: Vec<u8> = target.octets().into();
-            let vni_bits = vni.to_be_bytes();
+            let vni_bits = vni.to_le_bytes();
             parameter_data.extend_from_slice(&vni_bits[1..4]);
             parameter_data.extend_from_slice(mac.as_bytes());
 
@@ -322,8 +322,8 @@ async fn main() {
         }
         Commands::RemoveNat4 { dst, begin, end } => {
             let mut keyset_data: Vec<u8> = dst.octets().into();
-            keyset_data.extend_from_slice(&begin.to_be_bytes());
-            keyset_data.extend_from_slice(&end.to_be_bytes());
+            keyset_data.extend_from_slice(&begin.to_le_bytes());
+            keyset_data.extend_from_slice(&end.to_le_bytes());
 
             send(
                 ManagementRequest::TableRemove(TableRemove {
@@ -349,11 +349,11 @@ async fn main() {
             }
 
             let mut keyset_data: Vec<u8> = dst.octets().into();
-            keyset_data.extend_from_slice(&begin.to_be_bytes());
-            keyset_data.extend_from_slice(&end.to_be_bytes());
+            keyset_data.extend_from_slice(&begin.to_le_bytes());
+            keyset_data.extend_from_slice(&end.to_le_bytes());
 
             let mut parameter_data: Vec<u8> = target.octets().into();
-            let vni_bits = vni.to_be_bytes();
+            let vni_bits = vni.to_le_bytes();
             parameter_data.extend_from_slice(&vni_bits[1..4]);
             parameter_data.extend_from_slice(mac.as_bytes());
 
@@ -370,8 +370,8 @@ async fn main() {
         }
         Commands::RemoveNat6 { dst, begin, end } => {
             let mut keyset_data: Vec<u8> = dst.octets().into();
-            keyset_data.extend_from_slice(&begin.to_be_bytes());
-            keyset_data.extend_from_slice(&end.to_be_bytes());
+            keyset_data.extend_from_slice(&begin.to_le_bytes());
+            keyset_data.extend_from_slice(&end.to_le_bytes());
 
             send(
                 ManagementRequest::TableRemove(TableRemove {
@@ -434,7 +434,7 @@ async fn main() {
         }
 
         Commands::SetMac { port, ref mac } => {
-            let keyset_data: Vec<u8> = port.to_be_bytes().to_vec();
+            let keyset_data: Vec<u8> = port.to_le_bytes().to_vec();
             let parameter_data: Vec<u8> = mac.as_bytes().into();
             send(
                 ManagementRequest::TableAdd(TableAdd {
@@ -448,7 +448,7 @@ async fn main() {
             .await;
         }
         Commands::ClearMac { port } => {
-            let keyset_data: Vec<u8> = port.to_be_bytes().to_vec();
+            let keyset_data: Vec<u8> = port.to_le_bytes().to_vec();
             send(
                 ManagementRequest::TableRemove(TableRemove {
                     table: MAC_REWRITE.into(),
@@ -576,10 +576,12 @@ async fn main() {
             end,
             ref mac,
         } => {
-            let mut keyset_data: Vec<u8> = begin.octets().into();
-            keyset_data.extend_from_slice(&end.octets());
+            let mut keyset_data: Vec<u8> =
+                u32::from(begin).to_le_bytes().into();
+            keyset_data.extend_from_slice(&u32::from(end).to_le_bytes());
 
-            let parameter_data: Vec<u8> = mac.as_bytes().into();
+            let mut parameter_data: Vec<u8> = mac.as_bytes().into();
+            parameter_data.reverse();
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
@@ -594,8 +596,9 @@ async fn main() {
         }
 
         Commands::RemoveProxyArp { begin, end } => {
-            let mut keyset_data: Vec<u8> = begin.octets().into();
-            keyset_data.extend_from_slice(&end.octets());
+            let mut keyset_data: Vec<u8> =
+                u32::from(begin).to_le_bytes().into();
+            keyset_data.extend_from_slice(&u32::from(end).to_le_bytes());
 
             send(
                 ManagementRequest::TableRemove(TableRemove {
@@ -619,13 +622,13 @@ async fn main() {
 fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
     println!("local v6:");
     for e in table.get(LOCAL_V6).unwrap() {
-        if let Some(a) = get_addr(&e.keyset_data, true) {
+        if let Some(a) = get_addr(&e.keyset_data, false) {
             println!("{a}")
         }
     }
     println!("local v4:");
     for e in table.get(LOCAL_V4).unwrap() {
-        if let Some(a) = get_addr(&e.keyset_data, true) {
+        if let Some(a) = get_addr(&e.keyset_data, false) {
             println!("{a}")
         }
     }
@@ -636,7 +639,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             Some((a, m)) => format!("{a}/{m}"),
             None => "?".into(),
         };
-        let gw = match get_port_addr(&e.parameter_data) {
+        let gw = match get_port_addr(&e.parameter_data, false) {
             Some((a, p)) => format!("{a} ({p})"),
             None => "?".into(),
         };
@@ -648,7 +651,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             Some((a, m)) => format!("{a}/{m}"),
             None => "?".into(),
         };
-        let gw = match get_port_addr(&e.parameter_data) {
+        let gw = match get_port_addr(&e.parameter_data, false) {
             Some((a, p)) => format!("{a} ({p})"),
             None => "?".into(),
         };
@@ -657,14 +660,14 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
 
     println!("resolver v4:");
     for e in table.get(RESOLVER_V4).unwrap() {
-        let l3 = match get_addr(&e.keyset_data, true) {
+        let l3 = match get_addr(&e.keyset_data, false) {
             Some(a) => a.to_string(),
             None => "?".into(),
         };
         let l2 = match get_mac(&e.parameter_data) {
             Some(m) => format!(
                 "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-                m[0], m[1], m[2], m[3], m[4], m[5],
+                m[5], m[4], m[3], m[2], m[1], m[0],
             ),
             None => "?".into(),
         };
@@ -673,21 +676,21 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
 
     println!("resolver v6:");
     for e in table.get(RESOLVER_V6).unwrap() {
-        let l3 = match get_addr(&e.keyset_data, true) {
+        let l3 = match get_addr(&e.keyset_data, false) {
             Some(a) => a.to_string(),
             None => "?".into(),
         };
         let l2 = match get_mac(&e.parameter_data) {
             Some(m) => format!(
                 "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-                m[0], m[1], m[2], m[3], m[4], m[5],
+                m[5], m[4], m[3], m[2], m[1], m[0],
             ),
             None => "?".into(),
         };
         println!("{l3} -> {l2}");
     }
 
-    println!("nat_v4:");
+    println!("nat v4:");
     for e in table.get(NAT_V4).unwrap() {
         let dst_nat_id = match get_addr_nat_id(&e.keyset_data) {
             Some((dst, nat_start, nat_end)) => {
@@ -698,7 +701,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         let target = match get_addr_vni_mac(&e.parameter_data) {
             Some((addr, vni, m)) => format!(
                 "{} {}/{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-                addr, vni, m[0], m[1], m[2], m[3], m[4], m[5],
+                addr, vni, m[5], m[4], m[3], m[2], m[1], m[0],
             ),
             None => "?".into(),
         };
@@ -715,7 +718,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         let target = match get_addr_vni_mac(&e.parameter_data) {
             Some((addr, vni, m)) => format!(
                 "{} {}/{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-                addr, vni, m[0], m[1], m[2], m[3], m[4], m[5],
+                addr, vni, m[5], m[4], m[3], m[2], m[1], m[0],
             ),
             None => "?".into(),
         };
@@ -729,7 +732,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         let m = &e.parameter_data;
         let mac = format!(
             "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-            m[0], m[1], m[2], m[3], m[4], m[5],
+            m[5], m[4], m[3], m[2], m[1], m[0],
         );
         println!("{port}: {mac}");
     }
@@ -743,7 +746,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         dump_table_entry(e);
     }
 
-    println!("proxy_arp:");
+    println!("proxy arp:");
     for e in table.get(PROXY_ARP).unwrap() {
         let begin = Ipv4Addr::new(
             e.keyset_data[3],
@@ -762,7 +765,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
 
         let mac = format!(
             "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-            m[0], m[1], m[2], m[3], m[4], m[5],
+            m[5], m[4], m[3], m[2], m[1], m[0],
         );
         println!("{begin}/{end}: {mac}");
     }
@@ -825,12 +828,12 @@ fn get_addr_vni_mac(data: &[u8]) -> Option<(IpAddr, u32, [u8; 6])> {
     match data.len() {
         13 => Some((
             get_addr(&data[..4], false)?,
-            u32::from_be_bytes([0, data[4], data[5], data[6]]),
+            u32::from_le_bytes([data[4], data[5], data[6], 0]),
             data[7..13].try_into().ok()?,
         )),
         25 => Some((
             get_addr(&data[..16], false)?,
-            u32::from_be_bytes([0, data[16], data[17], data[18]]),
+            u32::from_le_bytes([data[16], data[17], data[18], 0]),
             data[19..25].try_into().ok()?,
         )),
         _ => {
@@ -844,13 +847,13 @@ fn get_addr_nat_id(data: &[u8]) -> Option<(IpAddr, u16, u16)> {
     match data.len() {
         8 => Some((
             get_addr(&data[..4], false)?,
-            u16::from_be_bytes([data[4], data[5]]),
-            u16::from_be_bytes([data[6], data[7]]),
+            u16::from_le_bytes([data[4], data[5]]),
+            u16::from_le_bytes([data[6], data[7]]),
         )),
         20 => Some((
             get_addr(&data[..16], false)?,
-            u16::from_be_bytes([data[16], data[17]]),
-            u16::from_be_bytes([data[18], data[19]]),
+            u16::from_le_bytes([data[16], data[17]]),
+            u16::from_le_bytes([data[18], data[19]]),
         )),
         _ => {
             println!("expected [address, nat_id], found: {data:x?}");
@@ -859,15 +862,15 @@ fn get_addr_nat_id(data: &[u8]) -> Option<(IpAddr, u16, u16)> {
     }
 }
 
-fn get_port_addr(data: &[u8]) -> Option<(IpAddr, u16)> {
+fn get_port_addr(data: &[u8], rev: bool) -> Option<(IpAddr, u16)> {
     match data.len() {
         6 => Some((
-            get_addr(&data[2..], false)?,
-            u16::from_be_bytes([data[0], data[1]]),
+            get_addr(&data[2..], rev)?,
+            u16::from_le_bytes([data[0], data[1]]),
         )),
         18 => Some((
-            get_addr(&data[2..], false)?,
-            u16::from_be_bytes([data[0], data[1]]),
+            get_addr(&data[2..], rev)?,
+            u16::from_le_bytes([data[0], data[1]]),
         )),
         _ => {
             println!("expected [port, address], found: {data:x?}");
