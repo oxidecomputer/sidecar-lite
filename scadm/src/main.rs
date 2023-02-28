@@ -622,13 +622,13 @@ async fn main() {
 fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
     println!("local v6:");
     for e in table.get(LOCAL_V6).unwrap() {
-        if let Some(a) = get_addr(&e.keyset_data, true) {
+        if let Some(a) = get_addr(&e.keyset_data, false) {
             println!("{a}")
         }
     }
     println!("local v4:");
     for e in table.get(LOCAL_V4).unwrap() {
-        if let Some(a) = get_addr(&e.keyset_data, true) {
+        if let Some(a) = get_addr(&e.keyset_data, false) {
             println!("{a}")
         }
     }
@@ -660,7 +660,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
 
     println!("resolver v4:");
     for e in table.get(RESOLVER_V4).unwrap() {
-        let l3 = match get_addr(&e.keyset_data, true) {
+        let l3 = match get_addr(&e.keyset_data, false) {
             Some(a) => a.to_string(),
             None => "?".into(),
         };
@@ -676,7 +676,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
 
     println!("resolver v6:");
     for e in table.get(RESOLVER_V6).unwrap() {
-        let l3 = match get_addr(&e.keyset_data, true) {
+        let l3 = match get_addr(&e.keyset_data, false) {
             Some(a) => a.to_string(),
             None => "?".into(),
         };
@@ -690,7 +690,7 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         println!("{l3} -> {l2}");
     }
 
-    println!("nat_v4:");
+    println!("nat v4:");
     for e in table.get(NAT_V4).unwrap() {
         let dst_nat_id = match get_addr_nat_id(&e.keyset_data) {
             Some((dst, nat_start, nat_end)) => {
@@ -746,19 +746,19 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         dump_table_entry(e);
     }
 
-    println!("proxy_arp:");
+    println!("proxy arp:");
     for e in table.get(PROXY_ARP).unwrap() {
         let begin = Ipv4Addr::new(
-            e.keyset_data[0],
-            e.keyset_data[1],
-            e.keyset_data[2],
             e.keyset_data[3],
+            e.keyset_data[2],
+            e.keyset_data[1],
+            e.keyset_data[0],
         );
         let end = Ipv4Addr::new(
-            e.keyset_data[4],
-            e.keyset_data[5],
-            e.keyset_data[6],
             e.keyset_data[7],
+            e.keyset_data[6],
+            e.keyset_data[5],
+            e.keyset_data[4],
         );
 
         let m = &e.parameter_data;
