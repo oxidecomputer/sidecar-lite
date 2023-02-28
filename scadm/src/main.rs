@@ -828,12 +828,12 @@ fn get_addr_vni_mac(data: &[u8]) -> Option<(IpAddr, u32, [u8; 6])> {
     match data.len() {
         13 => Some((
             get_addr(&data[..4], false)?,
-            u32::from_le_bytes([0, data[4], data[5], data[6]]),
+            u32::from_le_bytes([data[4], data[5], data[6], 0]),
             data[7..13].try_into().ok()?,
         )),
         25 => Some((
             get_addr(&data[..16], false)?,
-            u32::from_le_bytes([0, data[16], data[17], data[18]]),
+            u32::from_le_bytes([data[16], data[17], data[18], 0]),
             data[19..25].try_into().ok()?,
         )),
         _ => {
