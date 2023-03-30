@@ -221,7 +221,8 @@ async fn main() {
             keyset_data.push(mask);
 
             let mut parameter_data = port.to_le_bytes().to_vec();
-            let nexthop_data: Vec<u8> = nexthop.octets().into();
+            let mut nexthop_data: Vec<u8> = nexthop.octets().into();
+            nexthop_data.reverse();
             parameter_data.extend_from_slice(&nexthop_data);
 
             send(
@@ -259,7 +260,8 @@ async fn main() {
             keyset_data.push(mask);
 
             let mut parameter_data = port.to_le_bytes().to_vec();
-            let nexthop_data: Vec<u8> = nexthop.octets().into();
+            let mut nexthop_data: Vec<u8> = nexthop.octets().into();
+            nexthop_data.reverse();
             parameter_data.extend_from_slice(&nexthop_data);
 
             send(
