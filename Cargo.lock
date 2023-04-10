@@ -718,7 +718,7 @@ checksum = "9b7820b9daea5457c9f21c69448905d723fbd21136ccf521748f23fd49e723ee"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#a1a1010c140f9b247c39926e5702708226908abe"
+source = "git+https://github.com/oxidecomputer/p4?branch=ry-dev#3cce659416bf82bfa601ca93cfe0431ca7e80bf2"
 dependencies = [
  "colored",
  "regex",
@@ -727,7 +727,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#a1a1010c140f9b247c39926e5702708226908abe"
+source = "git+https://github.com/oxidecomputer/p4?branch=ry-dev#3cce659416bf82bfa601ca93cfe0431ca7e80bf2"
 dependencies = [
  "p4",
  "p4-rust",
@@ -740,7 +740,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#a1a1010c140f9b247c39926e5702708226908abe"
+source = "git+https://github.com/oxidecomputer/p4?branch=ry-dev#3cce659416bf82bfa601ca93cfe0431ca7e80bf2"
 dependencies = [
  "p4",
  "prettyplease",
@@ -754,6 +754,23 @@ dependencies = [
 name = "p4rs"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/p4?branch=main#a1a1010c140f9b247c39926e5702708226908abe"
+dependencies = [
+ "bitvec",
+ "colored",
+ "num",
+ "serde",
+ "serde_json",
+ "slog",
+ "slog-async",
+ "slog-envlogger",
+ "slog-term",
+ "usdt",
+]
+
+[[package]]
+name = "p4rs"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/p4?branch=ry-dev#3cce659416bf82bfa601ca93cfe0431ca7e80bf2"
 dependencies = [
  "bitvec",
  "colored",
@@ -1026,7 +1043,7 @@ dependencies = [
  "libc",
  "macaddr",
  "num",
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
  "serde",
  "serde_json",
  "softnpu",
@@ -1111,7 +1128,7 @@ dependencies = [
  "colored",
  "num",
  "p4-macro",
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=ry-dev)",
  "usdt",
 ]
 
@@ -1220,7 +1237,7 @@ dependencies = [
  "indicatif",
  "libc",
  "libloading",
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
  "p9ds",
  "p9kp",
  "serde",

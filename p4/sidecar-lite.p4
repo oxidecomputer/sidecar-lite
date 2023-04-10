@@ -12,6 +12,7 @@ SoftNPU(
 
 struct headers_t {
     ethernet_h ethernet;
+    vlan_h vlan;
     sidecar_h sidecar;
     arp_h arp;
     ipv4_h ipv4;
@@ -57,6 +58,26 @@ parser parse(
 ){
     state start {
         pkt.extract(hdr.ethernet);
+        if (hdr.ethernet.ether_type == 16w0x0800) {
+            transition ipv4;
+        }
+        if (hdr.ethernet.ether_type == 16w0x86dd) {
+            transition ipv6;
+        }
+        if (hdr.ethernet.ether_type == 16w0x0901) {
+            transition sidecar;
+        }
+        if (hdr.ethernet.ether_type == 16w0x0806) {
+            transition arp;
+        }
+        if (hdr.ethernet.ether_type == 16w0x8100) {
+            transition vlan;
+        }
+        transition reject;
+    }
+
+    state vlan {
+        pkt.extract(hdr.vlan);
         if (hdr.ethernet.ether_type == 16w0x0800) {
             transition ipv4;
         }
@@ -446,53 +467,117 @@ control resolver(
     }
             
 }
-    
 
-control router(
-    inout headers_t hdr,
+control router_v4(
+    in bit<32> dst,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
+    out bit<12> vid_out,
 ) {
-    action drop() { }
-
-    action forward_v6(bit<16> port, bit<128> nexthop) {
-        egress.port = port;
-        egress.nexthop_v6 = nexthop;
+    action drop() {
+        egress.drop = true;
     }
 
-    action forward_v4(bit<16> port, bit<32> nexthop) {
+    action forward(bit<16> port, bit<32> nexthop, bit<12> vid) {
         egress.port = port;
         egress.nexthop_v4 = nexthop;
+        vid_out = vid;
     }
 
-    table router_v6 {
+    table rtr {
         key = {
-            hdr.ipv6.dst: lpm;
+            dst: lpm;
         }
         actions = {
             drop;
-            forward_v6;
-        }
-        default_action = drop;
-    }
-
-    table router_v4 {
-        key = {
-            hdr.ipv4.dst: lpm;
-        }
-        actions = {
-            drop;
-            forward_v4;
+            forward;
         }
         default_action = drop;
     }
 
     apply {
+        rtr.apply();
+    }
+}
+
+control router_v6(
+    in bit<128> dst,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
+    out bit<12> vid_out,
+) {
+
+    action drop() {
+        egress.drop = true;
+    }
+
+    action forward(bit<16> port, bit<128> nexthop, bit<12> vid) {
+        egress.port = port;
+        egress.nexthop_v6 = nexthop;
+        vid_out = vid;
+    }
+
+    table rtr {
+        key = {
+            dst: lpm;
+        }
+        actions = {
+            drop;
+            forward;
+        }
+        default_action = drop;
+    }
+
+    apply {
+        rtr.apply();
+    }
+
+}
+
+control router(
+    inout headers_t hdr,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
+    in bool reverse_path_filter,
+) {
+    router_v4() v4;
+    router_v6() v6;
+
+    apply {
+        bit<12> vid = 12w0;
+
         if (hdr.ipv4.isValid()) {
-            router_v4.apply();
+            v4.apply(hdr.ipv4.dst, ingress, egress, vid);
+
+            if (reverse_path_filter) {
+                v4.apply(hdr.ipv4.src, ingress, egress, vid);
+                if (vid > 12w1) {
+                    if (hdr.vlan.isValid() != true) {
+                        egress.drop = true;
+                        return;
+                    }
+                    if (hdr.vlan.vid != vid) {
+                        egress.drop = true;
+                    }
+                }
+            }
+
         }
         if (hdr.ipv6.isValid()) {
-            router_v6.apply();
+            v6.apply(hdr.ipv6.dst, ingress, egress, vid);
+
+            if (reverse_path_filter) {
+                v6.apply(hdr.ipv6.src, ingress, egress, vid);
+                if (vid > 12w1) {
+                    if (hdr.vlan.isValid() != true) {
+                        egress.drop = true;
+                        return;
+                    }
+                    if (hdr.vlan.vid != vid) {
+                        egress.drop = true;
+                    }
+                }
+            }
         }
     }
 
@@ -634,7 +719,7 @@ control ingress(
                     hdr.udp.setValid();
                     hdr.inner_udp.setInvalid();
                 }
-                router.apply(hdr, ingress, egress);
+                router.apply(hdr, ingress, egress, false);
                 if (egress.port != 16w0) {
                     resolver.apply(hdr, egress);
                 }
@@ -671,7 +756,12 @@ control ingress(
             // check for ingress nat
             nat.apply(hdr, ingress, egress);
 
-            router.apply(hdr, ingress, egress);
+            if (ingress.nat) {
+                router.apply(hdr, ingress, egress, true);
+            } else {
+                router.apply(hdr, ingress, egress, false);
+            }
+
             if (egress.port != 16w0) {
                 resolver.apply(hdr, egress);
             }
