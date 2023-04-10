@@ -560,6 +560,15 @@ control router(
                         egress.drop = true;
                     }
                 }
+            } else {
+                if (vid > 12w1) {
+                    hdr.vlan.setValid();
+                    hdr.vlan.pcp = 3w0;
+                    hdr.vlan.dei = 1w0;
+                    hdr.vlan.vid = vid;
+                    hdr.vlan.ether_type = hdr.ethernet.ether_type;
+                    hdr.ethernet.ether_type = 16w0x8100;
+                }
             }
 
         }
@@ -576,6 +585,15 @@ control router(
                     if (hdr.vlan.vid != vid) {
                         egress.drop = true;
                     }
+                }
+            } else {
+                if (vid > 12w1) {
+                    hdr.vlan.setValid();
+                    hdr.vlan.pcp = 3w0;
+                    hdr.vlan.dei = 1w0;
+                    hdr.vlan.vid = vid;
+                    hdr.vlan.ether_type = hdr.ethernet.ether_type;
+                    hdr.ethernet.ether_type = 16w0x8100;
                 }
             }
         }
