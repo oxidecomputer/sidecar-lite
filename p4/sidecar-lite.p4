@@ -78,16 +78,16 @@ parser parse(
 
     state vlan {
         pkt.extract(hdr.vlan);
-        if (hdr.ethernet.ether_type == 16w0x0800) {
+        if (hdr.vlan.ether_type == 16w0x0800) {
             transition ipv4;
         }
-        if (hdr.ethernet.ether_type == 16w0x86dd) {
+        if (hdr.vlan.ether_type == 16w0x86dd) {
             transition ipv6;
         }
-        if (hdr.ethernet.ether_type == 16w0x0901) {
+        if (hdr.vlan.ether_type == 16w0x0901) {
             transition sidecar;
         }
-        if (hdr.ethernet.ether_type == 16w0x0806) {
+        if (hdr.vlan.ether_type == 16w0x0806) {
             transition arp;
         }
         transition reject;
@@ -512,6 +512,7 @@ control router_v6(
     }
 
     action forward(bit<16> port, bit<128> nexthop, bit<12> vid) {
+        egress.drop = false;
         egress.port = port;
         egress.nexthop_v6 = nexthop;
         vid_out = vid;
@@ -574,16 +575,29 @@ control router(
         }
         if (hdr.ipv6.isValid()) {
             v6.apply(hdr.ipv6.dst, ingress, egress, vid);
+            if (egress.drop == true) {
+                return;
+            }
+
+            //TODO compiler broken for this, should be able to do this in one line.
+            bit<16> outport = 0;
+            outport = egress.port;
+            /// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
             if (reverse_path_filter) {
-                v6.apply(hdr.ipv6.src, ingress, egress, vid);
-                if (vid > 12w1) {
-                    if (hdr.vlan.isValid() != true) {
-                        egress.drop = true;
-                        return;
-                    }
-                    if (hdr.vlan.vid != vid) {
-                        egress.drop = true;
+                if (hdr.inner_ipv4.isValid()) {
+                    v4.apply(hdr.inner_ipv4.src, ingress, egress, vid);
+                    if (vid > 12w1) {
+                        if (hdr.vlan.isValid() != true) {
+                            egress.drop = true;
+                            return;
+                        }
+                        if (hdr.vlan.vid != vid) {
+                            egress.drop = true;
+                            return;
+                        }
+                        egress.port = outport;
+                        hdr.vlan.setInvalid();
                     }
                 }
             } else {
@@ -738,7 +752,7 @@ control ingress(
                     hdr.inner_udp.setInvalid();
                 }
                 router.apply(hdr, ingress, egress, false);
-                if (egress.port != 16w0) {
+                if (egress.drop == false) {
                     resolver.apply(hdr, egress);
                 }
             }
@@ -780,9 +794,9 @@ control ingress(
                 router.apply(hdr, ingress, egress, false);
             }
 
-            if (egress.port != 16w0) {
+            //if (egress.port != 16w0) {
                 resolver.apply(hdr, egress);
-            }
+            //}
         }
 
         //

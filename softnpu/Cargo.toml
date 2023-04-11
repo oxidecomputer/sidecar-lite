@@ -10,7 +10,15 @@ crate_type = ["dylib"]
 [dependencies]
 p4rs = { git = "https://github.com/oxidecomputer/p4", branch = "ry-dev" }
 p4-macro = { git = "https://github.com/oxidecomputer/p4", branch = "ry-dev" }
+#p4rs = { path = "/home/ry/src/p4/lang/p4rs" }
+#p4-macro = { path = "/home/ry/src/p4/lang/p4-macro" }
 num = "0.4"
 bitvec = "1.0"
 colored = "2.0"
 usdt = { git = "https://github.com/oxidecomputer/usdt" }
+
+[dev-dependencies]
+p4-test = { package = "tests", git = "https://github.com/oxidecomputer/p4", branch = "ry-dev" }
+#p4-test = { package = "tests", path = "/home/ry/src/p4/test" }
+anyhow = "1"
+pnet = "0.31"
