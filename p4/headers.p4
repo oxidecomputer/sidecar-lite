@@ -72,7 +72,8 @@ header icmp_h {
     bit<8> type;
     bit<8> code;
     bit<16> hdr_checksum;
-    bit<32> data;
+    bit<16> identifier;
+    bit<16> seq;
 }
 
 header geneve_h {

@@ -49,6 +49,7 @@ struct headers_t {
     ipv6_h inner_ipv6;
     tcp_h inner_tcp;
     udp_h inner_udp;
+    icmp_h inner_icmp;
 }
 
 parser parse(
@@ -149,7 +150,7 @@ parser parse(
 
     state icmp {
         pkt.extract(hdr.icmp);
-        ingress.nat_id = hdr.icmp.data[15:0];
+        ingress.nat_id = hdr.icmp.identifier;
         transition accept;
     }
 
@@ -160,6 +161,9 @@ parser parse(
         }
         if (hdr.ipv4.protocol == 8w6) {
             transition tcp;
+        }
+        if (hdr.ipv4.protocol == 8w1) {
+            transition icmp;
         }
         transition accept;
     }
@@ -245,7 +249,6 @@ control nat_ingress(
         bit<16> orig_l3_csum = 0;
 
         // move L2 to inner L2
-
         hdr.inner_eth = hdr.ethernet;
         hdr.inner_eth.dst = mac;
         hdr.inner_eth.setValid();
@@ -254,7 +257,6 @@ control nat_ingress(
         hdr.ethernet.ether_type = 16w0x86dd;
 
         // move L3 to inner L3
-
         if (hdr.ipv4.isValid()) {
             hdr.inner_ipv4 = hdr.ipv4;
             orig_l3_len = hdr.ipv4.total_len;
@@ -267,7 +269,6 @@ control nat_ingress(
         }
 
         // move L4 to inner L4
-
         if (hdr.tcp.isValid()) {
             hdr.inner_tcp = hdr.tcp;
             hdr.inner_tcp.setValid();
@@ -277,6 +278,10 @@ control nat_ingress(
             orig_l3_csum = hdr.udp.checksum;
             hdr.inner_udp = hdr.udp;
             hdr.inner_udp.setValid();
+        }
+        if (hdr.icmp.isValid()) {
+            hdr.inner_icmp = hdr.icmp;
+            hdr.inner_icmp.setValid();
         }
 
         // set up outer l3

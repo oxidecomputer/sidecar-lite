@@ -2,6 +2,7 @@ use crate::main_pipeline;
 use p4_test::softnpu::{SoftNpu, TxFrame};
 use pnet::packet::ethernet::EtherType;
 use pnet::packet::ethernet::MutableEthernetPacket;
+use pnet::packet::icmp::MutableIcmpPacket;
 use pnet::packet::ip::IpNextHeaderProtocol;
 use pnet::packet::ipv4::{Ipv4Packet, MutableIpv4Packet};
 use pnet::packet::ipv6::MutableIpv6Packet;
@@ -29,6 +30,11 @@ fn pipeline_init(pipeline: &mut main_pipeline) {
         [11, 22, 33, 44, 55, 66],
     );
     pipeline.add_ingress_nat_nat_v4_entry(
+        "forward_to_sled",
+        &key_buf,
+        &param_buf,
+    );
+    pipeline.add_ingress_nat_nat_icmp_v4_entry(
         "forward_to_sled",
         &key_buf,
         &param_buf,
@@ -87,15 +93,23 @@ fn vlan_routing_egress() -> Result<(), anyhow::Error> {
      */
 
     // start from bottom up
+    let mut n = 8;
+    let mut icmp_data: Vec<u8> = vec![0; n];
+    let mut icmp = MutableIcmpPacket::new(&mut icmp_data).unwrap();
+    icmp.set_payload([0x04, 0x17, 0x00, 0x00].as_slice());
+
+    /*
     let payload = b"muffins";
     let mut n = 8 + payload.len();
     let mut inner_udp_data: Vec<u8> = vec![0; n];
+
 
     let mut inner_udp = MutableUdpPacket::new(&mut inner_udp_data).unwrap();
     inner_udp.set_source(1047);
     inner_udp.set_destination(1074);
     inner_udp.set_payload(payload);
     inner_udp.set_checksum(99);
+    */
 
     n += 20;
     let mut inner_ip_data: Vec<u8> = vec![0; n];
@@ -111,8 +125,8 @@ fn vlan_routing_egress() -> Result<(), anyhow::Error> {
     inner_ip.set_header_length(5);
     inner_ip.set_destination(inner_dst);
     inner_ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
-    inner_ip.set_total_length(20 + inner_udp_data.len() as u16);
-    inner_ip.set_payload(&inner_udp_data);
+    inner_ip.set_total_length(20 + icmp_data.len() as u16);
+    inner_ip.set_payload(&icmp_data);
 
     n += 14;
     let mut eth_data: Vec<u8> = vec![0; n];
@@ -161,10 +175,7 @@ fn vlan_routing_egress() -> Result<(), anyhow::Error> {
         Ipv4Packet::new(&inner_ip_data.clone()).unwrap(),
         decapped_ip
     );
-    assert_eq!(
-        UdpPacket::new(&inner_udp_data.clone()).unwrap(),
-        decapped_udp
-    );
+    assert_eq!(UdpPacket::new(&icmp_data.clone()).unwrap(), decapped_udp);
 
     Ok(())
 }
@@ -180,7 +191,13 @@ fn vlan_routing_ingress() -> Result<(), anyhow::Error> {
 
     npu.run();
 
+    let mut n = 8;
+    let mut icmp_data: Vec<u8> = vec![0; n];
+    let mut icmp = MutableIcmpPacket::new(&mut icmp_data).unwrap();
+    icmp.set_payload([0x04, 0x17, 0x00, 0x00].as_slice());
+
     // start from bottom up
+    /*
     let payload = b"muffins";
     let mut n = 8 + payload.len();
     let mut udp_data: Vec<u8> = vec![0; n];
@@ -189,6 +206,7 @@ fn vlan_routing_ingress() -> Result<(), anyhow::Error> {
     udp.set_destination(1047);
     udp.set_checksum(0x1701);
     udp.set_payload(payload.as_slice());
+    */
 
     n += 20;
     let mut ip_data: Vec<u8> = vec![0; n];
@@ -201,9 +219,9 @@ fn vlan_routing_ingress() -> Result<(), anyhow::Error> {
     ip.set_source(src);
     ip.set_header_length(5);
     ip.set_destination(dst);
-    ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
-    ip.set_total_length(20 + udp_data.len() as u16);
-    ip.set_payload(&udp_data);
+    ip.set_next_level_protocol(IpNextHeaderProtocol::new(1));
+    ip.set_total_length(20 + icmp_data.len() as u16);
+    ip.set_payload(&icmp_data);
 
     // This frame should get through
     phy1.send(&[TxFrame::newv(phy0.mac, 0x0800, &ip_data, 20)])?;
