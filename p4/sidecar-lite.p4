@@ -682,6 +682,10 @@ control ingress(
         //
 
         mac.apply(hdr, egress);
+
+        if (ingress.port == egress.port) {
+            egress.drop = true;
+        }
     }
 }
 
