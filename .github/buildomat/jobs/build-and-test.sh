@@ -9,6 +9,26 @@
 #:   "/work/release/*",
 #: ]
 #:
+#: [[publish]]
+#: series = "release"
+#: name = "libsidecar_lite.so"
+#: from_output = "/work/release/libsidecar_lite.so"
+#:
+#: [[publish]]
+#: series = "release"
+#: name = "scadm"
+#: from_output = "/work/release/scadm"
+#:
+#: [[publish]]
+#: series = "debug"
+#: name = "libsidecar_lite.so"
+#: from_output = "/work/debug/libsidecar_lite.so"
+#:
+#: [[publish]]
+#: series = "debug"
+#: name = "scadm"
+#: from_output = "/work/debug/scadm"
+#:
 
 set -o errexit
 set -o pipefail
