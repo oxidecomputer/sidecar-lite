@@ -14,11 +14,13 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 fn pipeline_init(pipeline: &mut main_pipeline) {
     // router entry upstream
     let (key_buf, param_buf) = router_entry("0.0.0.0", 0, "1.2.3.1", 1, 20);
-    pipeline.add_ingress_router_v4_rtr_entry("forward", &key_buf, &param_buf);
+    pipeline
+        .add_ingress_router_v4_rtr_entry("forward", &key_buf, &param_buf, 0);
 
     // router entry downstream
     let (key_buf, param_buf) = router_entry("fd00:1::", 64, "fe80::1", 0, 0);
-    pipeline.add_ingress_router_v6_rtr_entry("forward", &key_buf, &param_buf);
+    pipeline
+        .add_ingress_router_v6_rtr_entry("forward", &key_buf, &param_buf, 0);
 
     // nat entry
     let (key_buf, param_buf) = nat4_entry(
@@ -33,16 +35,12 @@ fn pipeline_init(pipeline: &mut main_pipeline) {
         "forward_to_sled",
         &key_buf,
         &param_buf,
-    );
-    pipeline.add_ingress_nat_nat_icmp_v4_entry(
-        "forward_to_sled",
-        &key_buf,
-        &param_buf,
+        0,
     );
 
     // boundary services loopback ip entry
     let (key_buf, param_buf) = local6_entry("fd00:99::1");
-    pipeline.add_ingress_local_local_v6_entry("local", &key_buf, &param_buf);
+    pipeline.add_ingress_local_local_v6_entry("local", &key_buf, &param_buf, 0);
 
     // resolver entry for upstream gateway
     let (key_buf, param_buf) =
@@ -51,6 +49,7 @@ fn pipeline_init(pipeline: &mut main_pipeline) {
         "rewrite_dst",
         &key_buf,
         &param_buf,
+        0,
     );
 
     // resolver entry for sled
@@ -60,14 +59,17 @@ fn pipeline_init(pipeline: &mut main_pipeline) {
         "rewrite_dst",
         &key_buf,
         &param_buf,
+        0,
     );
 
     // mac rewrite tables
     let (key_buf, param_buf) = mac_rewrite_entry(0, [1, 2, 3, 4, 5, 6]);
-    pipeline.add_ingress_mac_mac_rewrite_entry("rewrite", &key_buf, &param_buf);
+    pipeline
+        .add_ingress_mac_mac_rewrite_entry("rewrite", &key_buf, &param_buf, 0);
 
     let (key_buf, param_buf) = mac_rewrite_entry(1, [6, 5, 4, 3, 2, 1]);
-    pipeline.add_ingress_mac_mac_rewrite_entry("rewrite", &key_buf, &param_buf);
+    pipeline
+        .add_ingress_mac_mac_rewrite_entry("rewrite", &key_buf, &param_buf, 0);
 }
 
 #[test]

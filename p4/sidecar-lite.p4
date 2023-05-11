@@ -577,7 +577,7 @@ control router(
                 return;
             }
 
-            if (hdr.geneve.isValid() != true) {
+            if (hdr.geneve.isValid() == false) {
                 if (reverse_path_filter) {
                     v6.apply(hdr.ipv6.src, ingress, egress, vid);
                     if (egress.drop == true) {
@@ -615,6 +615,7 @@ control router(
                     if (egress.drop == true) {
                         return;
                     }
+                    egress.port = outport;
                     if (vid > 12w1) {
                         if (hdr.vlan.isValid() != true) {
                             egress.drop = true;
@@ -624,20 +625,10 @@ control router(
                             egress.drop = true;
                             return;
                         }
-                        egress.port = outport;
                         hdr.vlan.setInvalid();
                     }
                 }
-            } else {
-                if (vid > 12w1) {
-                    hdr.vlan.setValid();
-                    hdr.vlan.pcp = 3w0;
-                    hdr.vlan.dei = 1w0;
-                    hdr.vlan.vid = vid;
-                    hdr.vlan.ether_type = hdr.ethernet.ether_type;
-                    hdr.ethernet.ether_type = 16w0x8100;
-                }
-            }
+            } 
         }
     }
 
@@ -785,7 +776,7 @@ control ingress(
                     hdr.icmp.setValid();
                     hdr.inner_icmp.setInvalid();
                 }
-                router.apply(hdr, ingress, egress, true);
+                router.apply(hdr, ingress, egress, false);
                 if (egress.drop == false) {
                     resolver.apply(hdr, egress);
                 }
@@ -824,7 +815,7 @@ control ingress(
             nat.apply(hdr, ingress, egress);
 
             if (ingress.nat) {
-                router.apply(hdr, ingress, egress, false);
+                router.apply(hdr, ingress, egress, true);
             } else {
                 router.apply(hdr, ingress, egress, false);
             }
