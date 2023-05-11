@@ -811,7 +811,7 @@ checksum = "ceedf44fb00f2d1984b0bc98102627ce622e083e49a5bacdb3e514fa4238e267"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=ry-dev#1597ca92e884e1d29efa10e9c9c507e8885f241a"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#5d84413c11c745a8debbd70cd05f2c63ae9a7f8d"
 dependencies = [
  "colored",
  "regex",
@@ -820,7 +820,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=ry-dev#1597ca92e884e1d29efa10e9c9c507e8885f241a"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#5d84413c11c745a8debbd70cd05f2c63ae9a7f8d"
 dependencies = [
  "p4",
  "p4-rust",
@@ -833,7 +833,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=ry-dev#1597ca92e884e1d29efa10e9c9c507e8885f241a"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#5d84413c11c745a8debbd70cd05f2c63ae9a7f8d"
 dependencies = [
  "p4",
  "prettyplease",
@@ -846,24 +846,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#9afa12297ef6c32802f9c112ae11be2f0e6f2c6d"
-dependencies = [
- "bitvec",
- "colored",
- "num",
- "serde",
- "serde_json",
- "slog",
- "slog-async",
- "slog-envlogger",
- "slog-term",
- "usdt",
-]
-
-[[package]]
-name = "p4rs"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=ry-dev#1597ca92e884e1d29efa10e9c9c507e8885f241a"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#5d84413c11c745a8debbd70cd05f2c63ae9a7f8d"
 dependencies = [
  "bitvec",
  "colored",
@@ -1280,7 +1263,7 @@ dependencies = [
  "libc",
  "macaddr",
  "num",
- "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
+ "p4rs",
  "serde",
  "serde_json",
  "softnpu",
@@ -1295,18 +1278,18 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "serde"
-version = "1.0.162"
+version = "1.0.163"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71b2f6e1ab5c2b98c05f0f35b236b22e8df7ead6ffbf51d7808da7f8817e7ab6"
+checksum = "2113ab51b87a539ae008b5c6c02dc020ffa39afd2d83cffcb3f4eb2722cebec2"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.162"
+version = "1.0.163"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2a0814352fd64b58489904a44ea8d90cb1a91dcb6b4f5ebabc32c8318e93cb6"
+checksum = "8c805777e3930c8883389c602315a24224bcc738b63905ef87cd1420353ea93e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1378,7 +1361,7 @@ dependencies = [
  "colored",
  "num",
  "p4-macro",
- "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=ry-dev)",
+ "p4rs",
  "pnet",
  "tests",
  "usdt",
@@ -1480,7 +1463,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#8c9defcb94f045a46c9f9a0c0618a25e8eae440f"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#5091054d4fbb95ef752a43fef7e4fcf4f967692d"
 dependencies = [
  "anyhow",
  "clap 4.2.7",
@@ -1489,7 +1472,7 @@ dependencies = [
  "indicatif",
  "libc",
  "libloading",
- "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
+ "p4rs",
  "p9ds",
  "p9kp",
  "serde",
@@ -1578,14 +1561,14 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=ry-dev#1597ca92e884e1d29efa10e9c9c507e8885f241a"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#5d84413c11c745a8debbd70cd05f2c63ae9a7f8d"
 dependencies = [
  "anyhow",
  "bitvec",
  "colored",
  "num",
  "p4-macro",
- "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=ry-dev)",
+ "p4rs",
  "pnet",
  "rand",
  "usdt",
