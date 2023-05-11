@@ -6,7 +6,8 @@ edition = "2021"
 [dependencies]
 p4rs = { git = "https://github.com/oxidecomputer/p4", branch = "main" }
 base64 = { version = "0.13" }
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4.2.5", features = ["derive", "unstable-styles"] }
+anstyle = "1.0.0"
 libc = "0.2"
 serde = "1.0"
 serde_json = "1.0"

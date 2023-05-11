@@ -23,7 +23,7 @@ enum Mode {
 }
 
 #[derive(Parser, Debug)]
-#[clap(version, about)]
+#[command(version, about, long_about = None, styles = get_styles())]
 struct Cli {
     #[clap(subcommand)]
     command: Commands,
@@ -191,16 +191,28 @@ enum Commands {
 
     /// Load a program onto the SoftNPU ASIC emulator
     LoadProgram { path: String },
+
+    /// Save current table state to a JSON file to restore later.
+    Save {
+        /// The filename to save to.
+        #[arg(short, long, default_value = "tables.json")]
+        filename: String,
+    },
+
+    /// Restore saved table state from a JSON file produced by `save`.
+    Restore {
+        /// The filename to restore from.
+        #[arg(short, long, default_value = "tables.json")]
+        filename: String,
+    },
 }
 
-const ROUTER_V4: &str = "ingress.router.router_v4";
-const ROUTER_V6: &str = "ingress.router.router_v6";
+const ROUTER_V4: &str = "ingress.router.v4.rtr";
+const ROUTER_V6: &str = "ingress.router.v6.rtr";
 const LOCAL_V6: &str = "ingress.local.local_v6";
 const LOCAL_V4: &str = "ingress.local.local_v4";
 const NAT_V4: &str = "ingress.nat.nat_v4";
 const NAT_V6: &str = "ingress.nat.nat_v6";
-const NAT_ICMP_V6: &str = "ingress.nat.nat_icmp_v6";
-const NAT_ICMP_V4: &str = "ingress.nat.nat_icmp_v4";
 const RESOLVER_V4: &str = "ingress.resolver.resolver_v4";
 const RESOLVER_V6: &str = "ingress.resolver.resolver_v6";
 const MAC_REWRITE: &str = "ingress.mac.mac_rewrite";
@@ -228,7 +240,7 @@ async fn main() {
             send(
                 ManagementRequest::TableAdd(TableAdd {
                     table: ROUTER_V4.into(),
-                    action: "forward_v4".into(),
+                    action: "forward".into(),
                     keyset_data,
                     parameter_data,
                 }),
@@ -267,7 +279,7 @@ async fn main() {
             send(
                 ManagementRequest::TableAdd(TableAdd {
                     table: ROUTER_V6.into(),
-                    action: "forward_v6".into(),
+                    action: "forward".into(),
                     keyset_data,
                     parameter_data,
                 }),
@@ -275,6 +287,7 @@ async fn main() {
             )
             .await;
         }
+
         Commands::RemoveRoute6 { destination, mask } => {
             let mut keyset_data: Vec<u8> = destination.octets().into();
             keyset_data.push(mask);
@@ -303,13 +316,17 @@ async fn main() {
             }
 
             let mut keyset_data: Vec<u8> = dst.octets().into();
+            keyset_data.reverse();
             keyset_data.extend_from_slice(&begin.to_le_bytes());
             keyset_data.extend_from_slice(&end.to_le_bytes());
 
             let mut parameter_data: Vec<u8> = target.octets().into();
+            parameter_data.reverse();
             let vni_bits = vni.to_le_bytes();
-            parameter_data.extend_from_slice(&vni_bits[1..4]);
-            parameter_data.extend_from_slice(mac.as_bytes());
+            parameter_data.extend_from_slice(&vni_bits[0..3]);
+            let mut mac = mac.as_bytes().to_vec();
+            mac.reverse();
+            parameter_data.extend_from_slice(&mac);
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
@@ -322,8 +339,10 @@ async fn main() {
             )
             .await;
         }
+
         Commands::RemoveNat4 { dst, begin, end } => {
             let mut keyset_data: Vec<u8> = dst.octets().into();
+            keyset_data.reverse();
             keyset_data.extend_from_slice(&begin.to_le_bytes());
             keyset_data.extend_from_slice(&end.to_le_bytes());
 
@@ -351,13 +370,17 @@ async fn main() {
             }
 
             let mut keyset_data: Vec<u8> = dst.octets().into();
+            keyset_data.reverse();
             keyset_data.extend_from_slice(&begin.to_le_bytes());
             keyset_data.extend_from_slice(&end.to_le_bytes());
 
             let mut parameter_data: Vec<u8> = target.octets().into();
+            parameter_data.reverse();
             let vni_bits = vni.to_le_bytes();
-            parameter_data.extend_from_slice(&vni_bits[1..4]);
-            parameter_data.extend_from_slice(mac.as_bytes());
+            parameter_data.extend_from_slice(&vni_bits[0..3]);
+            let mut mac = mac.as_bytes().to_vec();
+            mac.reverse();
+            parameter_data.extend_from_slice(&mac);
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
@@ -372,6 +395,7 @@ async fn main() {
         }
         Commands::RemoveNat6 { dst, begin, end } => {
             let mut keyset_data: Vec<u8> = dst.octets().into();
+            keyset_data.reverse();
             keyset_data.extend_from_slice(&begin.to_le_bytes());
             keyset_data.extend_from_slice(&end.to_le_bytes());
 
@@ -618,7 +642,52 @@ async fn main() {
             }
             load_program(&path).await.expect("load program");
         }
+
+        Commands::Save { ref filename } => match cli.mode {
+            Mode::Standalone => {
+                let uds = bind_uds(&cli);
+                let filename = filename.clone();
+                let j = tokio::spawn(async move {
+                    if let ManagementResponse::DumpResponse(ref tables) =
+                        recv_uds(uds).await
+                    {
+                        save_tables(tables, &filename);
+                    }
+                });
+                send(ManagementRequest::DumpRequest, &cli).await;
+                j.await.unwrap();
+            }
+            Mode::Propolis => {
+                let d = dump_tables_propolis();
+                save_tables(&d, filename);
+            }
+        },
+
+        Commands::Restore { ref filename } => {
+            let data = std::fs::read(filename).unwrap();
+            let tables: BTreeMap<String, Vec<TableEntry>> =
+                serde_json::from_slice(&data).unwrap();
+            for (name, entries) in &tables {
+                for entry in entries {
+                    send(
+                        ManagementRequest::TableAdd(TableAdd {
+                            table: name.clone(),
+                            action: entry.action_id.clone(),
+                            keyset_data: entry.keyset_data.clone(),
+                            parameter_data: entry.parameter_data.clone(),
+                        }),
+                        &cli,
+                    )
+                    .await;
+                }
+            }
+        }
     }
+}
+
+fn save_tables(table: &BTreeMap<String, Vec<TableEntry>>, filename: &str) {
+    let j = serde_json::to_string_pretty(&table).unwrap();
+    std::fs::write(filename, j.as_bytes()).unwrap();
 }
 
 fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
@@ -641,8 +710,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             Some((a, m)) => format!("{a}/{m}"),
             None => "?".into(),
         };
-        let gw = match get_port_addr(&e.parameter_data, false) {
-            Some((a, p)) => format!("{a} ({p})"),
+        let gw = match get_port_addr_vlan(&e.parameter_data, false) {
+            Some((a, p, v)) => format!("{a} ({p}) vid={v}"),
             None => "?".into(),
         };
         println!("{tgt} -> {gw}");
@@ -653,8 +722,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             Some((a, m)) => format!("{a}/{m}"),
             None => "?".into(),
         };
-        let gw = match get_port_addr(&e.parameter_data, false) {
-            Some((a, p)) => format!("{a} ({p})"),
+        let gw = match get_port_addr_vlan(&e.parameter_data, false) {
+            Some((a, p, v)) => format!("{a} ({p}) vid={v}"),
             None => "?".into(),
         };
         println!("{tgt} -> {gw}");
@@ -739,15 +808,6 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         println!("{port}: {mac}");
     }
 
-    println!("icmp_v6:");
-    for e in table.get(NAT_ICMP_V6).unwrap() {
-        dump_table_entry(e);
-    }
-    println!("icmp_v4:");
-    for e in table.get(NAT_ICMP_V4).unwrap() {
-        dump_table_entry(e);
-    }
-
     println!("proxy arp:");
     for e in table.get(PROXY_ARP).unwrap() {
         let begin = Ipv4Addr::new(
@@ -773,6 +833,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
     }
 }
 
+// use this if you are unsure how to dump a new entry
+#[allow(dead_code)]
 fn dump_table_entry(e: &p4rs::TableEntry) {
     println!(
         "{} {:#x?} {:#x?}",
@@ -864,6 +926,7 @@ fn get_addr_nat_id(data: &[u8]) -> Option<(IpAddr, u16, u16)> {
     }
 }
 
+#[allow(dead_code)]
 fn get_port_addr(data: &[u8], rev: bool) -> Option<(IpAddr, u16)> {
     match data.len() {
         6 => Some((
@@ -873,6 +936,25 @@ fn get_port_addr(data: &[u8], rev: bool) -> Option<(IpAddr, u16)> {
         18 => Some((
             get_addr(&data[2..], rev)?,
             u16::from_le_bytes([data[0], data[1]]),
+        )),
+        _ => {
+            println!("expected [port, address], found: {data:x?}");
+            None
+        }
+    }
+}
+
+fn get_port_addr_vlan(data: &[u8], rev: bool) -> Option<(IpAddr, u16, u16)> {
+    match data.len() {
+        8 => Some((
+            get_addr(&data[2..6], rev)?,
+            u16::from_le_bytes([data[0], data[1]]),
+            u16::from_le_bytes([data[6], data[7]]),
+        )),
+        20 => Some((
+            get_addr(&data[2..18], rev)?,
+            u16::from_le_bytes([data[0], data[1]]),
+            u16::from_le_bytes([data[18], data[19]]),
         )),
         _ => {
             println!("expected [port, address], found: {data:x?}");
@@ -918,4 +1000,26 @@ async fn recv_uds(uds: UnixDatagram) -> ManagementResponse {
     let mut buf = vec![0u8; 10240];
     let n = uds.recv(&mut buf).await.unwrap();
     serde_json::from_slice(&buf[..n]).unwrap()
+}
+
+pub fn get_styles() -> clap::builder::Styles {
+    clap::builder::Styles::styled()
+        .header(anstyle::Style::new().bold().underline().fg_color(Some(
+            anstyle::Color::Rgb(anstyle::RgbColor(245, 207, 101)),
+        )))
+        .literal(anstyle::Style::new().bold().fg_color(Some(
+            anstyle::Color::Rgb(anstyle::RgbColor(72, 213, 151)),
+        )))
+        .invalid(anstyle::Style::new().bold().fg_color(Some(
+            anstyle::Color::Rgb(anstyle::RgbColor(72, 213, 151)),
+        )))
+        .valid(anstyle::Style::new().bold().fg_color(Some(
+            anstyle::Color::Rgb(anstyle::RgbColor(72, 213, 151)),
+        )))
+        .usage(anstyle::Style::new().bold().fg_color(Some(
+            anstyle::Color::Rgb(anstyle::RgbColor(245, 207, 101)),
+        )))
+        .error(anstyle::Style::new().bold().fg_color(Some(
+            anstyle::Color::Rgb(anstyle::RgbColor(232, 104, 134)),
+        )))
 }
