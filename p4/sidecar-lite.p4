@@ -538,25 +538,29 @@ control router(
 
     apply {
         bit<12> vid = 12w0;
+        bit<16> outport = 0;
 
         if (hdr.ipv4.isValid()) {
             v4.apply(hdr.ipv4.dst, ingress, egress, vid);
             if (egress.drop == true) {
                 return;
             }
+            outport = egress.port;
 
             if (reverse_path_filter) {
                 v4.apply(hdr.ipv4.src, ingress, egress, vid);
                 if (egress.drop == true) {
                     return;
                 }
+                egress.port = outport;
                 if (vid > 12w1) {
-                    if (hdr.vlan.isValid() != true) {
+                    if (hdr.vlan.isValid() == false) {
                         egress.drop = true;
                         return;
                     }
                     if (hdr.vlan.vid != vid) {
                         egress.drop = true;
+                        return;
                     }
                 }
             } else {
@@ -576,6 +580,7 @@ control router(
             if (egress.drop == true) {
                 return;
             }
+            outport = egress.port;
 
             if (hdr.geneve.isValid() == false) {
                 if (reverse_path_filter) {
@@ -583,6 +588,7 @@ control router(
                     if (egress.drop == true) {
                         return;
                     }
+                    egress.port = outport;
                     if (vid > 12w1) {
                         if (hdr.vlan.isValid() != true) {
                             egress.drop = true;
@@ -604,10 +610,6 @@ control router(
                 }
             }
 
-            //TODO compiler broken for this, should be able to do this in one line.
-            bit<16> outport = 0;
-            outport = egress.port;
-            /// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
             if (reverse_path_filter) {
                 if (hdr.inner_ipv4.isValid()) {
@@ -625,6 +627,7 @@ control router(
                             egress.drop = true;
                             return;
                         }
+                        hdr.inner_eth.ether_type = 16w0x0800;
                         hdr.vlan.setInvalid();
                     }
                 }

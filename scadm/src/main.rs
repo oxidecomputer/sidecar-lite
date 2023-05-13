@@ -53,6 +53,10 @@ enum Commands {
 
         /// Next Hop
         nexthop: Ipv4Addr,
+
+        /// Vlan id
+        #[arg(long, default_value_t = 0)]
+        vid: u16,
     },
 
     /// Remove a route from the routing table.
@@ -77,6 +81,10 @@ enum Commands {
 
         /// Next Hop
         nexthop: Ipv6Addr,
+
+        /// Vlan id
+        #[arg(long, default_value_t = 0)]
+        vid: u16,
     },
 
     /// Remove a route from the routing table.
@@ -228,6 +236,7 @@ async fn main() {
             mask,
             port,
             nexthop,
+            vid,
         } => {
             let mut keyset_data: Vec<u8> = destination.octets().into();
             keyset_data.push(mask);
@@ -236,6 +245,7 @@ async fn main() {
             let mut nexthop_data: Vec<u8> = nexthop.octets().into();
             nexthop_data.reverse();
             parameter_data.extend_from_slice(&nexthop_data);
+            parameter_data.extend_from_slice(&vid.to_le_bytes());
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
@@ -267,6 +277,7 @@ async fn main() {
             mask,
             port,
             nexthop,
+            vid,
         } => {
             let mut keyset_data: Vec<u8> = destination.octets().into();
             keyset_data.push(mask);
@@ -275,6 +286,7 @@ async fn main() {
             let mut nexthop_data: Vec<u8> = nexthop.octets().into();
             nexthop_data.reverse();
             parameter_data.extend_from_slice(&nexthop_data);
+            parameter_data.extend_from_slice(&vid.to_le_bytes());
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
@@ -527,8 +539,10 @@ async fn main() {
         },
 
         Commands::AddNdpEntry { l3, ref l2 } => {
-            let keyset_data: Vec<u8> = l3.octets().into();
-            let parameter_data: Vec<u8> = l2.as_bytes().into();
+            let mut keyset_data: Vec<u8> = l3.octets().into();
+            keyset_data.reverse();
+            let mut parameter_data: Vec<u8> = l2.as_bytes().into();
+            parameter_data.reverse();
             send(
                 ManagementRequest::TableAdd(TableAdd {
                     table: RESOLVER_V6.into(),
@@ -553,8 +567,10 @@ async fn main() {
         }
 
         Commands::AddArpEntry { l3, ref l2 } => {
-            let keyset_data: Vec<u8> = l3.octets().into();
-            let parameter_data: Vec<u8> = l2.as_bytes().into();
+            let mut keyset_data: Vec<u8> = l3.octets().into();
+            keyset_data.reverse();
+            let mut parameter_data: Vec<u8> = l2.as_bytes().into();
+            parameter_data.reverse();
             send(
                 ManagementRequest::TableAdd(TableAdd {
                     table: RESOLVER_V4.into(),
