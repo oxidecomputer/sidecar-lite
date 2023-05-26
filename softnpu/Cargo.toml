@@ -8,9 +8,14 @@ name = "sidecar_lite"
 crate_type = ["dylib"]
 
 [dependencies]
-p4rs = { git = "https://github.com/oxidecomputer/p4", branch = "main" }
-p4-macro = { git = "https://github.com/oxidecomputer/p4", branch = "main" }
-num = "0.4"
-bitvec = "1.0"
-colored = "2.0"
-usdt = { git = "https://github.com/oxidecomputer/usdt" }
+p4rs.workspace = true
+p4-macro.workspace = true
+num.workspace = true
+bitvec.workspace = true
+colored.workspace = true
+usdt.workspace = true
+
+[dev-dependencies]
+p4-test.workspace = true
+anyhow.workspace = true
+pnet.workspace = true

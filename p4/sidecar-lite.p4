@@ -12,6 +12,7 @@ SoftNPU(
 
 struct headers_t {
     ethernet_h ethernet;
+    vlan_h vlan;
     sidecar_h sidecar;
     arp_h arp;
     ipv4_h ipv4;
@@ -46,6 +47,7 @@ struct headers_t {
     ethernet_h inner_eth;
     ipv4_h inner_ipv4;
     ipv6_h inner_ipv6;
+    icmp_h inner_icmp;
     tcp_h inner_tcp;
     udp_h inner_udp;
 }
@@ -67,6 +69,26 @@ parser parse(
             transition sidecar;
         }
         if (hdr.ethernet.ether_type == 16w0x0806) {
+            transition arp;
+        }
+        if (hdr.ethernet.ether_type == 16w0x8100) {
+            transition vlan;
+        }
+        transition reject;
+    }
+
+    state vlan {
+        pkt.extract(hdr.vlan);
+        if (hdr.vlan.ether_type == 16w0x0800) {
+            transition ipv4;
+        }
+        if (hdr.vlan.ether_type == 16w0x86dd) {
+            transition ipv6;
+        }
+        if (hdr.vlan.ether_type == 16w0x0901) {
+            transition sidecar;
+        }
+        if (hdr.vlan.ether_type == 16w0x0806) {
             transition arp;
         }
         transition reject;
@@ -128,7 +150,7 @@ parser parse(
 
     state icmp {
         pkt.extract(hdr.icmp);
-        ingress.nat_id = hdr.icmp.data[15:0];
+        ingress.nat_id = hdr.icmp.identifier;
         transition accept;
     }
 
@@ -139,6 +161,9 @@ parser parse(
         }
         if (hdr.ipv4.protocol == 8w6) {
             transition tcp;
+        }
+        if (hdr.ipv4.protocol == 8w1) {
+            transition icmp;
         }
         transition accept;
     }
@@ -182,6 +207,9 @@ parser parse(
         if (hdr.inner_ipv4.protocol == 8w6) {
             transition inner_tcp;
         }
+        if (hdr.inner_ipv4.protocol == 8w1) {
+            transition inner_icmp;
+        }
         transition accept;
     }
 
@@ -193,6 +221,15 @@ parser parse(
         if (hdr.inner_ipv6.next_hdr == 8w6) {
             transition inner_tcp;
         }
+        if (hdr.inner_ipv6.next_hdr == 8w58) {
+            transition inner_icmp;
+        }
+        transition accept;
+    }
+
+    state inner_icmp {
+        pkt.extract(hdr.inner_icmp);
+        ingress.nat_id = hdr.inner_icmp.identifier;
         transition accept;
     }
 
@@ -224,7 +261,6 @@ control nat_ingress(
         bit<16> orig_l3_csum = 0;
 
         // move L2 to inner L2
-
         hdr.inner_eth = hdr.ethernet;
         hdr.inner_eth.dst = mac;
         hdr.inner_eth.setValid();
@@ -233,7 +269,6 @@ control nat_ingress(
         hdr.ethernet.ether_type = 16w0x86dd;
 
         // move L3 to inner L3
-
         if (hdr.ipv4.isValid()) {
             hdr.inner_ipv4 = hdr.ipv4;
             orig_l3_len = hdr.ipv4.total_len;
@@ -246,7 +281,6 @@ control nat_ingress(
         }
 
         // move L4 to inner L4
-
         if (hdr.tcp.isValid()) {
             hdr.inner_tcp = hdr.tcp;
             hdr.inner_tcp.setValid();
@@ -256,6 +290,11 @@ control nat_ingress(
             orig_l3_csum = hdr.udp.checksum;
             hdr.inner_udp = hdr.udp;
             hdr.inner_udp.setValid();
+        }
+        if (hdr.icmp.isValid()) {
+            hdr.inner_icmp = hdr.icmp;
+            hdr.inner_icmp.setValid();
+            hdr.icmp.setInvalid();
         }
 
         // set up outer l3
@@ -321,38 +360,12 @@ control nat_ingress(
         default_action = NoAction;
     }
 
-    table nat_icmp_v6 {
-        key = {
-            hdr.ipv6.dst: exact;
-            ingress.nat_id: range;
-        }
-        actions = { forward_to_sled; }
-        default_action = NoAction;
-    }
-
-    table nat_icmp_v4 {
-        key = {
-            hdr.ipv4.dst: exact;
-            ingress.nat_id: range;
-        }
-        actions = { forward_to_sled; }
-        default_action = NoAction;
-    }
-
     apply {
         if (hdr.ipv4.isValid()) {
-            if (hdr.icmp.isValid()) {
-                nat_icmp_v4.apply();
-            } else {
-                nat_v4.apply();
-            }
+            nat_v4.apply();
         }
         if (hdr.ipv6.isValid()) {
-            if (hdr.icmp.isValid()) {
-                nat_icmp_v6.apply();
-            } else {
-                nat_v6.apply();
-            }
+            nat_v6.apply();
         }
     }
 
@@ -446,53 +459,179 @@ control resolver(
     }
             
 }
-    
 
-control router(
-    inout headers_t hdr,
+control router_v4(
+    in bit<32> dst,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
+    out bit<12> vid_out,
 ) {
-    action drop() { }
-
-    action forward_v6(bit<16> port, bit<128> nexthop) {
-        egress.port = port;
-        egress.nexthop_v6 = nexthop;
+    action drop() {
+        egress.drop = true;
     }
 
-    action forward_v4(bit<16> port, bit<32> nexthop) {
+    action forward(bit<16> port, bit<32> nexthop, bit<12> vid) {
         egress.port = port;
         egress.nexthop_v4 = nexthop;
+        vid_out = vid;
     }
 
-    table router_v6 {
+    table rtr {
         key = {
-            hdr.ipv6.dst: lpm;
+            dst: lpm;
         }
         actions = {
             drop;
-            forward_v6;
-        }
-        default_action = drop;
-    }
-
-    table router_v4 {
-        key = {
-            hdr.ipv4.dst: lpm;
-        }
-        actions = {
-            drop;
-            forward_v4;
+            forward;
         }
         default_action = drop;
     }
 
     apply {
+        rtr.apply();
+    }
+}
+
+control router_v6(
+    in bit<128> dst,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
+    out bit<12> vid_out,
+) {
+
+    action drop() {
+        egress.drop = true;
+    }
+
+    action forward(bit<16> port, bit<128> nexthop, bit<12> vid) {
+        egress.drop = false;
+        egress.port = port;
+        egress.nexthop_v6 = nexthop;
+        vid_out = vid;
+    }
+
+    table rtr {
+        key = {
+            dst: lpm;
+        }
+        actions = {
+            drop;
+            forward;
+        }
+        default_action = drop;
+    }
+
+    apply {
+        rtr.apply();
+    }
+
+}
+
+control router(
+    inout headers_t hdr,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
+    in bool reverse_path_filter,
+) {
+    router_v4() v4;
+    router_v6() v6;
+
+    apply {
+        bit<12> vid = 12w0;
+        bit<16> outport = 0;
+
         if (hdr.ipv4.isValid()) {
-            router_v4.apply();
+            v4.apply(hdr.ipv4.dst, ingress, egress, vid);
+            if (egress.drop == true) {
+                return;
+            }
+            outport = egress.port;
+
+            if (reverse_path_filter) {
+                v4.apply(hdr.ipv4.src, ingress, egress, vid);
+                if (egress.drop == true) {
+                    return;
+                }
+                egress.port = outport;
+                if (vid > 12w1) {
+                    if (hdr.vlan.isValid() == false) {
+                        egress.drop = true;
+                        return;
+                    }
+                    if (hdr.vlan.vid != vid) {
+                        egress.drop = true;
+                        return;
+                    }
+                }
+            } else {
+                if (vid > 12w1) {
+                    hdr.vlan.setValid();
+                    hdr.vlan.pcp = 3w0;
+                    hdr.vlan.dei = 1w0;
+                    hdr.vlan.vid = vid;
+                    hdr.vlan.ether_type = hdr.ethernet.ether_type;
+                    hdr.ethernet.ether_type = 16w0x8100;
+                }
+            }
+
         }
         if (hdr.ipv6.isValid()) {
-            router_v6.apply();
+            v6.apply(hdr.ipv6.dst, ingress, egress, vid);
+            if (egress.drop == true) {
+                return;
+            }
+            outport = egress.port;
+
+            if (hdr.geneve.isValid() == false) {
+                if (reverse_path_filter) {
+                    v6.apply(hdr.ipv6.src, ingress, egress, vid);
+                    if (egress.drop == true) {
+                        return;
+                    }
+                    egress.port = outport;
+                    if (vid > 12w1) {
+                        if (hdr.vlan.isValid() != true) {
+                            egress.drop = true;
+                            return;
+                        }
+                        if (hdr.vlan.vid != vid) {
+                            egress.drop = true;
+                        }
+                    }
+                } else {
+                    if (vid > 12w1) {
+                        hdr.vlan.setValid();
+                        hdr.vlan.pcp = 3w0;
+                        hdr.vlan.dei = 1w0;
+                        hdr.vlan.vid = vid;
+                        hdr.vlan.ether_type = hdr.ethernet.ether_type;
+                        hdr.ethernet.ether_type = 16w0x8100;
+                    }
+                }
+            }
+
+
+            if (reverse_path_filter) {
+                if (hdr.inner_ipv4.isValid()) {
+                    v4.apply(hdr.inner_ipv4.src, ingress, egress, vid);
+                    if (egress.drop == true) {
+                        return;
+                    }
+                    egress.port = outport;
+                    if (vid > 12w1) {
+                        if (hdr.vlan.isValid() != true) {
+                            egress.drop = true;
+                            return;
+                        }
+                        if (hdr.vlan.vid != vid) {
+                            egress.drop = true;
+                            return;
+                        }
+                        hdr.inner_eth.ether_type = 16w0x0800;
+                        hdr.vlan.setInvalid();
+                    }
+                }
+            } 
         }
     }
 
@@ -634,8 +773,14 @@ control ingress(
                     hdr.udp.setValid();
                     hdr.inner_udp.setInvalid();
                 }
-                router.apply(hdr, ingress, egress);
-                if (egress.port != 16w0) {
+                if (hdr.inner_icmp.isValid()) {
+                    hdr.icmp = hdr.inner_icmp;
+                    hdr.udp.setInvalid();
+                    hdr.icmp.setValid();
+                    hdr.inner_icmp.setInvalid();
+                }
+                router.apply(hdr, ingress, egress, false);
+                if (egress.drop == false) {
                     resolver.apply(hdr, egress);
                 }
             }
@@ -668,13 +813,17 @@ control ingress(
         //
 
         else {
+
             // check for ingress nat
             nat.apply(hdr, ingress, egress);
 
-            router.apply(hdr, ingress, egress);
-            if (egress.port != 16w0) {
-                resolver.apply(hdr, egress);
+            if (ingress.nat) {
+                router.apply(hdr, ingress, egress, true);
+            } else {
+                router.apply(hdr, ingress, egress, false);
             }
+
+            resolver.apply(hdr, egress);
         }
 
         //

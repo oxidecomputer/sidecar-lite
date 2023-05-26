@@ -3,3 +3,24 @@ members = [
     "softnpu",
     "scadm",
 ]
+
+[workspace.dependencies]
+p4rs = { git = "https://github.com/oxidecomputer/p4", branch = "main" }
+p4-macro = { git = "https://github.com/oxidecomputer/p4", branch = "main" }
+p4-test = { package = "tests", git = "https://github.com/oxidecomputer/p4", branch = "main" }
+usdt = { git = "https://github.com/oxidecomputer/usdt" }
+
+base64 = { version = "0.13" }
+clap = { version = "4.2.5", features = ["derive", "unstable-styles"] }
+anstyle = "1.0.0"
+libc = "0.2"
+serde = "1.0"
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+errno = "0.2"
+num = { version = "0.4.0", features = ["num-bigint"] }
+macaddr = "1.0.1"
+bitvec = "1.0"
+colored = "2.0"
+anyhow = "1"
+pnet = "0.31"

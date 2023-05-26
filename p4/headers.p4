@@ -15,6 +15,13 @@ header ethernet_h {
     bit<16> ether_type;
 }
 
+header vlan_h {
+    bit<3> pcp;
+    bit<1> dei;
+    bit<12> vid;
+    bit<16> ether_type;
+}
+
 header ipv6_h {
     bit<4>      version;
     bit<8>      traffic_class;
@@ -65,7 +72,8 @@ header icmp_h {
     bit<8> type;
     bit<8> code;
     bit<16> hdr_checksum;
-    bit<32> data;
+    bit<16> identifier;
+    bit<16> seq;
 }
 
 header geneve_h {

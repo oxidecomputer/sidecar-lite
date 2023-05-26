@@ -34,6 +34,9 @@ set -o errexit
 set -o pipefail
 set -o xtrace
 
+uname -a
+cat /etc/versions/build
+
 cargo --version
 rustc --version
 
@@ -44,6 +47,11 @@ cargo clippy -- --deny warnings
 banner "build"
 ptime -m cargo build
 ptime -m cargo build --release
+
+banner "test"
+pushd softnpu
+cargo test -- --nocapture
+popd
 
 for x in debug release
 do
