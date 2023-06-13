@@ -380,10 +380,31 @@ dependencies = [
 [[package]]
 name = "dof"
 version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e6b21a1211455e82b1245d6e1b024f30606afbb734c114515d40d0e0b34ce81"
+dependencies = [
+ "thiserror",
+ "zerocopy 0.3.0",
+]
+
+[[package]]
+name = "dof"
+version = "0.1.5"
 source = "git+https://github.com/oxidecomputer/usdt#06ffa81af8a08c1f7e89272f570a9cd26d068854"
 dependencies = [
  "thiserror",
- "zerocopy",
+ "zerocopy 0.6.1",
+]
+
+[[package]]
+name = "dtrace-parser"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bed110893a7f9f4ceb072e166354a09f6cb4cc416eec5b5e5e8ee367442d434b"
+dependencies = [
+ "pest",
+ "pest_derive",
+ "thiserror",
 ]
 
 [[package]]
@@ -811,7 +832,7 @@ checksum = "ceedf44fb00f2d1984b0bc98102627ce622e083e49a5bacdb3e514fa4238e267"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#5d84413c11c745a8debbd70cd05f2c63ae9a7f8d"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#d59491f86668e15e92f35ffe3f94504ff4241c64"
 dependencies = [
  "colored",
  "regex",
@@ -820,7 +841,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#5d84413c11c745a8debbd70cd05f2c63ae9a7f8d"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#d59491f86668e15e92f35ffe3f94504ff4241c64"
 dependencies = [
  "p4",
  "p4-rust",
@@ -833,7 +854,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#5d84413c11c745a8debbd70cd05f2c63ae9a7f8d"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#d59491f86668e15e92f35ffe3f94504ff4241c64"
 dependencies = [
  "p4",
  "prettyplease",
@@ -846,7 +867,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#5d84413c11c745a8debbd70cd05f2c63ae9a7f8d"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#d59491f86668e15e92f35ffe3f94504ff4241c64"
 dependencies = [
  "bitvec",
  "colored",
@@ -857,7 +878,7 @@ dependencies = [
  "slog-async",
  "slog-envlogger",
  "slog-term",
- "usdt",
+ "usdt 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1364,7 +1385,7 @@ dependencies = [
  "p4rs",
  "pnet",
  "tests",
- "usdt",
+ "usdt 0.3.5 (git+https://github.com/oxidecomputer/usdt)",
 ]
 
 [[package]]
@@ -1514,6 +1535,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "synstructure"
+version = "0.12.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f36bdaa60a83aca3921b5259d5400cbf5e90fc51931376a9bd4a0eb79aa7210f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "unicode-xid",
+]
+
+[[package]]
 name = "take_mut"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1561,7 +1594,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#5d84413c11c745a8debbd70cd05f2c63ae9a7f8d"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#d59491f86668e15e92f35ffe3f94504ff4241c64"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -1571,7 +1604,7 @@ dependencies = [
  "p4rs",
  "pnet",
  "rand",
- "usdt",
+ "usdt 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "xfr",
 ]
 
@@ -1732,15 +1765,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
 
 [[package]]
+name = "unicode-xid"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
+
+[[package]]
+name = "usdt"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b4c48f9e522b977bbe938a0d7c4d36633d267ba0155aaa253fb57d0531be0fb"
+dependencies = [
+ "dtrace-parser 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "usdt-attr-macro 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "usdt-impl 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "usdt-macro 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "usdt"
 version = "0.3.5"
 source = "git+https://github.com/oxidecomputer/usdt#06ffa81af8a08c1f7e89272f570a9cd26d068854"
 dependencies = [
- "dtrace-parser",
+ "dtrace-parser 0.1.14 (git+https://github.com/oxidecomputer/usdt)",
  "serde",
- "usdt-attr-macro",
- "usdt-impl",
- "usdt-macro",
+ "usdt-attr-macro 0.3.5 (git+https://github.com/oxidecomputer/usdt)",
+ "usdt-impl 0.3.5 (git+https://github.com/oxidecomputer/usdt)",
+ "usdt-macro 0.3.5 (git+https://github.com/oxidecomputer/usdt)",
+]
+
+[[package]]
+name = "usdt-attr-macro"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80e6ae4f982ae74dcbaa8eb17baf36ca0d464a3abc8a7172b3bd74c73e9505d6"
+dependencies = [
+ "dtrace-parser 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2",
+ "quote",
+ "serde_tokenstream 0.1.7",
+ "syn 1.0.109",
+ "usdt-impl 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1748,12 +1814,32 @@ name = "usdt-attr-macro"
 version = "0.3.5"
 source = "git+https://github.com/oxidecomputer/usdt#06ffa81af8a08c1f7e89272f570a9cd26d068854"
 dependencies = [
- "dtrace-parser",
+ "dtrace-parser 0.1.14 (git+https://github.com/oxidecomputer/usdt)",
  "proc-macro2",
  "quote",
  "serde_tokenstream 0.2.0",
  "syn 2.0.15",
- "usdt-impl",
+ "usdt-impl 0.3.5 (git+https://github.com/oxidecomputer/usdt)",
+]
+
+[[package]]
+name = "usdt-impl"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f53b4ca0b33aae466dc47b30b98adc4f88454928837af8010b6ed02d18474cb1"
+dependencies = [
+ "byteorder",
+ "dof 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dtrace-parser 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn 1.0.109",
+ "thiserror",
+ "thread-id",
+ "version_check",
 ]
 
 [[package]]
@@ -1762,8 +1848,8 @@ version = "0.3.5"
 source = "git+https://github.com/oxidecomputer/usdt#06ffa81af8a08c1f7e89272f570a9cd26d068854"
 dependencies = [
  "byteorder",
- "dof",
- "dtrace-parser",
+ "dof 0.1.5 (git+https://github.com/oxidecomputer/usdt)",
+ "dtrace-parser 0.1.14 (git+https://github.com/oxidecomputer/usdt)",
  "libc",
  "proc-macro2",
  "quote",
@@ -1778,14 +1864,28 @@ dependencies = [
 [[package]]
 name = "usdt-macro"
 version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cb093f9653dc91632621c754f9ed4ee25d14e46e0239b6ccaf74a6c0c2788bd"
+dependencies = [
+ "dtrace-parser 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2",
+ "quote",
+ "serde_tokenstream 0.1.7",
+ "syn 1.0.109",
+ "usdt-impl 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "usdt-macro"
+version = "0.3.5"
 source = "git+https://github.com/oxidecomputer/usdt#06ffa81af8a08c1f7e89272f570a9cd26d068854"
 dependencies = [
- "dtrace-parser",
+ "dtrace-parser 0.1.14 (git+https://github.com/oxidecomputer/usdt)",
  "proc-macro2",
  "quote",
  "serde_tokenstream 0.2.0",
  "syn 2.0.15",
- "usdt-impl",
+ "usdt-impl 0.3.5 (git+https://github.com/oxidecomputer/usdt)",
 ]
 
 [[package]]
@@ -2009,12 +2109,33 @@ source = "git+https://github.com/oxidecomputer/xfr#8a89ee73d039abf91fdddcdd66de6
 
 [[package]]
 name = "zerocopy"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6580539ad917b7c026220c4b3f2c08d52ce54d6ce0dc491e66002e35388fab46"
+dependencies = [
+ "byteorder",
+ "zerocopy-derive 0.2.0",
+]
+
+[[package]]
+name = "zerocopy"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "332f188cc1bcf1fe1064b8c58d150f497e697f49774aa846f2dc949d9a25f236"
 dependencies = [
  "byteorder",
- "zerocopy-derive",
+ "zerocopy-derive 0.3.2",
+]
+
+[[package]]
+name = "zerocopy-derive"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d498dbd1fd7beb83c86709ae1c33ca50942889473473d287d56ce4770a18edfb"
+dependencies = [
+ "proc-macro2",
+ "syn 1.0.109",
+ "synstructure",
 ]
 
 [[package]]
