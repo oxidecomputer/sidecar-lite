@@ -422,7 +422,8 @@ async fn main() {
         }
 
         Commands::AddAddress4 { address } => {
-            let keyset_data: Vec<u8> = address.octets().into();
+            let mut keyset_data: Vec<u8> = address.octets().into();
+            keyset_data.reverse();
             send(
                 ManagementRequest::TableAdd(TableAdd {
                     table: LOCAL_V4.into(),
@@ -435,7 +436,8 @@ async fn main() {
             .await;
         }
         Commands::RemoveAddress4 { address } => {
-            let keyset_data: Vec<u8> = address.octets().into();
+            let mut keyset_data: Vec<u8> = address.octets().into();
+            keyset_data.reverse();
             send(
                 ManagementRequest::TableRemove(TableRemove {
                     table: LOCAL_V4.into(),
@@ -447,7 +449,8 @@ async fn main() {
         }
 
         Commands::AddAddress6 { address } => {
-            let keyset_data: Vec<u8> = address.octets().into();
+            let mut keyset_data: Vec<u8> = address.octets().into();
+            keyset_data.reverse();
             send(
                 ManagementRequest::TableAdd(TableAdd {
                     table: LOCAL_V6.into(),
@@ -460,7 +463,8 @@ async fn main() {
             .await;
         }
         Commands::RemoveAddress6 { address } => {
-            let keyset_data: Vec<u8> = address.octets().into();
+            let mut keyset_data: Vec<u8> = address.octets().into();
+            keyset_data.reverse();
             send(
                 ManagementRequest::TableRemove(TableRemove {
                     table: LOCAL_V6.into(),
