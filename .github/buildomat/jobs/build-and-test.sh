@@ -16,8 +16,18 @@
 #:
 #: [[publish]]
 #: series = "release"
+#: name = "libsidecar_lite.so.sha256.txt"
+#: from_output = "/work/release/libsidecar_lite.so.sha256.txt"
+#:
+#: [[publish]]
+#: series = "release"
 #: name = "scadm"
 #: from_output = "/work/release/scadm"
+#:
+#: [[publish]]
+#: series = "release"
+#: name = "scadm.sha256.txt"
+#: from_output = "/work/release/scadm.sha256.txt"
 #:
 #: [[publish]]
 #: series = "debug"
@@ -26,8 +36,18 @@
 #:
 #: [[publish]]
 #: series = "debug"
+#: name = "libsidecar_lite.so.sha256.txt"
+#: from_output = "/work/debug/libsidecar_lite.so.sha256.txt"
+#:
+#: [[publish]]
+#: series = "debug"
 #: name = "scadm"
 #: from_output = "/work/debug/scadm"
+#:
+#: [[publish]]
+#: series = "debug"
+#: name = "scadm.sha256.txt"
+#: from_output = "/work/debug/scadm.sha256.txt"
 #:
 
 set -o errexit
@@ -53,10 +73,13 @@ pushd softnpu
 cargo test -- --nocapture
 popd
 
-for x in debug release
+for target in debug release
 do
-    mkdir -p /work/$x
-    cp target/$x/scadm /work/$x/
-    cp target/$x/libsidecar_lite.so /work/$x/
+    mkdir -p /work/$target
+    for binary in libsidecar_lite.so scadm
+    do
+        cp target/$target/$binary /work/$target/
+        digest -a sha256 /work/$target/$binary > /work/$target/$binary.sha256.txt
+    done
 done
 
