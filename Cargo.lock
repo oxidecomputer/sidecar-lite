@@ -665,8 +665,7 @@ dependencies = [
 [[package]]
 name = "macaddr"
 version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baee0bbc17ce759db233beb01648088061bf678383130602a298e6998eedb2d8"
+source = "git+https://github.com/luqmana/rust-macaddr?branch=leading-zeros#f339667731d81a8125cd930e5d51889585806b6c"
 
 [[package]]
 name = "memchr"
