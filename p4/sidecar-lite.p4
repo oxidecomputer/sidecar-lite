@@ -44,6 +44,7 @@ struct headers_t {
     udp_h udp;
 
     geneve_h geneve;
+    geneve_opt_h    ox_external_tag;
     ethernet_h inner_eth;
     ipv4_h inner_ipv4;
     ipv6_h inner_ipv6;
@@ -185,7 +186,29 @@ parser parse(
 
     state geneve {
         pkt.extract(hdr.geneve);
-        transition inner_eth;
+        if (hdr.geneve.opt_len == 6w0x00) {
+            transition inner_eth;
+        }
+        if (hdr.geneve.opt_len == 6w0x01) {
+            transition geneve_opt;
+        }
+        transition reject;
+    }
+
+    state geneve_opt {
+        pkt.extract(hdr.ox_external_tag);
+        // XXX: const GENEVE_OPT_CLASS_OXIDE not recognised here by x4c.
+        if (hdr.ox_external_tag.class == 16w0x0129) {
+            transition geneve_ox_opt;
+        }
+        transition reject;
+    }
+
+    state geneve_ox_opt {
+        if (hdr.ox_external_tag.rtype == 7w0x00) {
+            transition inner_eth;
+        }
+        transition reject;
     }
 
     state inner_eth {
@@ -301,8 +324,8 @@ control nat_ingress(
         hdr.ipv4.setInvalid();
 
         hdr.ipv6.version = 4w6; 
-        // original l2 + original l3 + encapsulating udp + encapsulating geneve
-        hdr.ipv6.payload_len = 16w14 + orig_l3_len + 16w8 + 16w8; 
+        // original l2 + original l3 + encapsulating udp + encapsulating geneve + geneve opt
+        hdr.ipv6.payload_len = 16w14 + orig_l3_len + 16w8 + 16w8 + 16w4;
         hdr.ipv6.next_hdr = 8w17;
         hdr.ipv6.hop_limit = 8w255;
         // XXX hardcoded boundary services addr
@@ -319,7 +342,7 @@ control nat_ingress(
 
         // set up geneve
         hdr.geneve.version = 2w0;
-        hdr.geneve.opt_len = 6w0;
+        hdr.geneve.opt_len = 6w1;
         hdr.geneve.ctrl = 1w0;
         hdr.geneve.crit = 1w0;
         hdr.geneve.reserved = 6w0;
@@ -330,13 +353,28 @@ control nat_ingress(
         hdr.geneve.reserved2 = 8w0;
         hdr.geneve.setValid();
 
+        // 4-byte option -- 'VPC-external packet'.
+        // XXX: const GENEVE_OPT_CLASS_OXIDE not recognised here by x4c.
+        hdr.ox_external_tag.class = 16w0x0129;
+        hdr.ox_external_tag.crit = 1w0;
+        hdr.ox_external_tag.rtype = 7w0x00;
+        hdr.ox_external_tag.reserved = 3w0;
+        hdr.ox_external_tag.opt_len = 5w0;
+        hdr.ox_external_tag.setValid();
+
         hdr.udp.checksum = csum.run({
             hdr.ipv6.src,
             hdr.ipv6.dst,
-            orig_l3_len + 16w14 + 16w8 + 16w8, // orig + eth + udp + geneve
+            orig_l3_len + 16w14 + 16w8 + 16w8 + 16w4, // orig + eth + udp + geneve + opt
             8w17, // udp next header
             16w6081, 16w6081, // geneve src/dst port
-            orig_l3_len + 16w14 + 16w8 + 16w8, // orig + eth + udp + geneve
+            orig_l3_len + 16w14 + 16w8 + 16w8 + 16w4, // orig + eth + udp + geneve + opt
+            // geneve body
+            16w0x0100,
+            hdr.geneve.protocol,
+            hdr.geneve.vni,
+            8w0x00,
+            hdr.ox_external_tag.class,
             orig_l3_csum,
         });
 

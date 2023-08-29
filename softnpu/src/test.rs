@@ -1,15 +1,49 @@
 use crate::main_pipeline;
 use p4_test::softnpu::{SoftNpu, TxFrame};
 use pnet::packet::ethernet::EtherType;
+use pnet::packet::ethernet::EthernetPacket;
 use pnet::packet::ethernet::MutableEthernetPacket;
 use pnet::packet::icmp::MutableIcmpPacket;
 use pnet::packet::ip::IpNextHeaderProtocol;
 use pnet::packet::ipv4::{Ipv4Packet, MutableIpv4Packet};
-use pnet::packet::ipv6::MutableIpv6Packet;
+use pnet::packet::ipv6::{Ipv6Packet, MutableIpv6Packet};
 use pnet::packet::udp::{MutableUdpPacket, UdpPacket};
 use pnet::packet::Packet;
 use pnet::util::MacAddr;
+use pnet_macros::Packet as PktDerive;
+use pnet_macros_support::types::{u1, u16be, u2, u24be, u3, u5, u6, u7};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::println;
+
+// Geneve types used to verify encap and ingress NAT behaviour.
+#[allow(dead_code)]
+#[derive(PktDerive)]
+pub struct Geneve {
+    version: u2,
+    options_len: u6,
+    control_packet: u1,
+    has_critical_option: u1,
+    _reserved: u6,
+    protocol_type: u16be,
+    vni: u24be,
+    _reserved2: u8,
+
+    #[payload]
+    payload: Vec<u8>,
+}
+
+#[allow(dead_code)]
+#[derive(PktDerive)]
+pub struct GeneveOpt {
+    option_class: u16be,
+    critical_option: u1,
+    option_type: u7,
+    _reserved2: u3,
+    option_len: u5,
+
+    #[payload]
+    payload: Vec<u8>,
+}
 
 fn pipeline_init(pipeline: &mut main_pipeline) {
     // router entry upstream
@@ -216,24 +250,60 @@ fn vlan_routing_ingress() -> Result<(), anyhow::Error> {
     let src: Ipv4Addr = "8.8.8.8".parse().unwrap();
     let dst: Ipv4Addr = "1.2.3.4".parse().unwrap();
 
+    let send_ip_len = 20 + icmp_data.len() as u16;
+
     let mut ip = MutableIpv4Packet::new(&mut ip_data).unwrap();
     ip.set_version(4);
     ip.set_source(src);
     ip.set_header_length(5);
     ip.set_destination(dst);
     ip.set_next_level_protocol(IpNextHeaderProtocol::new(1));
-    ip.set_total_length(20 + icmp_data.len() as u16);
+    ip.set_total_length(send_ip_len);
     ip.set_payload(&icmp_data);
 
+    // ---- CASE 1 ----
     // This frame should get through
+    // ----------------
     phy1.send(&[TxFrame::newv(phy0.mac, 0x0800, &ip_data, 20)])?;
     std::thread::sleep(std::time::Duration::from_millis(250));
     assert_eq!(phy0.recv_buffer_len(), 1);
 
     let fs = phy0.recv();
-    let _f = &fs[0];
+    let f = &fs[0];
 
+    // Assert: correct length, Geneve header behaves reasonably, option defined.
+    let ip = Ipv6Packet::new(&f.payload).unwrap();
+    let udp = UdpPacket::new(ip.payload()).unwrap();
+    let geneve = GenevePacket::new(udp.payload()).unwrap();
+    let geneve_opt = GeneveOptPacket::new(geneve.payload()).unwrap();
+
+    let recv_body_len = send_ip_len as usize
+        + UdpPacket::minimum_packet_size()
+        + GenevePacket::minimum_packet_size()
+        + GeneveOptPacket::minimum_packet_size()
+        + EthernetPacket::minimum_packet_size();
+
+    assert_eq!(ip.get_payload_length(), recv_body_len as u16);
+    assert_eq!(udp.get_length(), recv_body_len as u16);
+
+    assert_eq!(udp.get_source(), 6081);
+    assert_eq!(udp.get_destination(), 6081);
+
+    assert_eq!(geneve.get_version(), 0);
+    assert_eq!(geneve.get_options_len(), 1);
+    assert_eq!(geneve.get_control_packet(), 0);
+    assert_eq!(geneve.get_has_critical_option(), 0);
+    assert_eq!(geneve.get_protocol_type(), 0x6558);
+    assert_eq!(geneve.get_vni(), 7777);
+
+    assert_eq!(geneve_opt.get_option_class(), 0x0129);
+    assert_eq!(geneve_opt.get_critical_option(), 0);
+    assert_eq!(geneve_opt.get_option_type(), 0);
+    assert_eq!(geneve_opt.get_option_len(), 0);
+
+    // ---- CASE 2 ----
     // This frame should not get through (wrong vlan)
+    // ----------------
     phy1.send(&[TxFrame::newv(phy0.mac, 0x0800, &ip_data, 30)])?;
     std::thread::sleep(std::time::Duration::from_millis(250));
     assert_eq!(phy0.recv_buffer_len(), 0);

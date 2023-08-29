@@ -87,6 +87,14 @@ header geneve_h {
     bit<8> reserved2;
 }
 
+header geneve_opt_h {
+    bit<16> class;
+    bit<1> crit;
+    bit<7> rtype;
+    bit<3> reserved;
+    bit<5> opt_len;
+}
+
 header arp_h {
 	bit<16>		hw_type;
 	bit<16>		proto_type;
