@@ -102,6 +102,9 @@ parser parse(
         if (hdr.sidecar.sc_ether_type == 16w0x0800) {
             transition ipv4;
         }
+        if (hdr.sidecar.sc_ether_type == 16w0x0806) {
+            transition arp;
+        }
         transition reject;
     }
 
@@ -417,6 +420,9 @@ control local(
         if(hdr.ipv4.isValid()) {
             local_v4.apply();
         }
+        if(hdr.arp.isValid()) {
+            is_local = true;
+        }
     }
     
 }
@@ -662,6 +668,7 @@ control proxy_arp(
     inout headers_t hdr,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
+    out bool is_proxied,
 ) {
     action proxy_arp_reply(bit<48> mac) {
         egress.port = ingress.port;
@@ -678,6 +685,8 @@ control proxy_arp(
 
         hdr.arp.sender_ip = hdr.arp.target_ip;
         hdr.arp.target_ip = tmp;
+
+        is_proxied = true;
     }
 
     table proxy_arp {
@@ -716,10 +725,10 @@ control ingress(
             egress.port = hdr.sidecar.sc_egress;
 
             // Decap the sidecar header.
+            hdr.ethernet.ether_type = hdr.sidecar.sc_ether_type;
             hdr.sidecar.setInvalid();
-            hdr.ethernet.ether_type = 16w0x86dd;
 
-            // No more processing is required for sidecar packets, they simple
+            // No more processing is required for sidecar packets, they simply
             // go out the sidecar port corresponding to the source scrimlet
             // port. No sort of hairpin back to the scrimlet is supported.
             // Similarly sending packets from one scrimlet port out a different
@@ -728,8 +737,11 @@ control ingress(
         }
 
         if (hdr.arp.isValid()) {
-            pxarp.apply(hdr, ingress, egress);
-            return;
+            bool proxied = false;
+            pxarp.apply(hdr, ingress, egress, proxied);
+            if (proxied) {
+                return;
+            }
         }
 
         //
@@ -790,13 +802,13 @@ control ingress(
 
             else {
                 hdr.sidecar.setValid();
+                hdr.sidecar.sc_ether_type = hdr.ethernet.ether_type;
                 hdr.ethernet.ether_type = 16w0x0901;
 
                 //SC_FORWARD_TO_USERSPACE
                 hdr.sidecar.sc_code = 8w0x01;
                 hdr.sidecar.sc_ingress = ingress.port;
                 hdr.sidecar.sc_egress = ingress.port;
-                hdr.sidecar.sc_ether_type = 16w0x86dd;
                 hdr.sidecar.sc_payload = 128w0x1701d;
 
                 // scrimlet port
