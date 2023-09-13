@@ -19,3 +19,5 @@ usdt.workspace = true
 p4-test.workspace = true
 anyhow.workspace = true
 pnet.workspace = true
+pnet_macros.workspace = true
+pnet_macros_support.workspace = true
