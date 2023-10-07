@@ -3,6 +3,7 @@ members = [
     "softnpu",
     "scadm",
 ]
+resolver = "2"
 
 [workspace.dependencies]
 p4rs = { git = "https://github.com/oxidecomputer/p4", branch = "main" }

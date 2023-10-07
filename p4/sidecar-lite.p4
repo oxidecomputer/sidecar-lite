@@ -362,6 +362,7 @@ control nat_ingress(
         hdr.ox_external_tag.opt_len = 5w0;
         hdr.ox_external_tag.setValid();
 
+        /// TODO: this is broken so just set to zero for now.
         hdr.udp.checksum = csum.run({
             hdr.ipv6.src,
             hdr.ipv6.dst,
@@ -377,6 +378,7 @@ control nat_ingress(
             hdr.ox_external_tag.class,
             orig_l3_csum,
         });
+        hdr.udp.checksum = 16w0;
 
     }
 
