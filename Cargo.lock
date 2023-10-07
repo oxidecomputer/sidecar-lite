@@ -1383,6 +1383,8 @@ dependencies = [
  "p4-macro",
  "p4rs",
  "pnet",
+ "pnet_macros",
+ "pnet_macros_support",
  "tests",
  "usdt 0.3.5 (git+https://github.com/oxidecomputer/usdt)",
 ]
