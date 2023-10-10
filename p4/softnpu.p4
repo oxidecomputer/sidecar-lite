@@ -4,6 +4,7 @@ struct ingress_metadata_t {
     bit<16> port;
     bool nat;
     bit<16> nat_id;
+    bit<16> path_idx;
 }
 
 struct egress_metadata_t {

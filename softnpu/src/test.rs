@@ -47,9 +47,16 @@ pub struct GeneveOpt {
 
 fn pipeline_init(pipeline: &mut main_pipeline) {
     // router entry upstream
-    let (key_buf, param_buf) = router_entry("0.0.0.0", 0, "1.2.3.1", 1);
+    // Add a single path for 0.0.0.0/0 pointing at data in slot 2.
+    let (key_buf, param_buf) = router_idx_entry("0.0.0.0", 0, 2, 0);
     pipeline
-        .add_ingress_router_v4_rtr_entry("forward", &key_buf, &param_buf, 0);
+        .add_ingress_router_v4_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+
+    // At slot 2, add a forwarding entry gw=1.2.3.1, port=1
+    let (key_buf, param_buf) = router_forward_entry(2, "1.2.3.1", 1);
+    pipeline.add_ingress_router_v4_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
 
     // router entry downstream
     let (key_buf, param_buf) = router_entry("fd00:1::", 64, "fe80::1", 0);
@@ -301,6 +308,42 @@ fn vlan_routing_ingress() -> Result<(), anyhow::Error> {
     assert_eq!(geneve_opt.get_option_len(), 0);
 
     Ok(())
+}
+
+// Create an entry for the multipath cidr -> index table
+fn router_idx_entry(
+    dst: &str,
+    prefix_len: u8,
+    idx: u16,
+    mask: u16,
+) -> (Vec<u8>, Vec<u8>) {
+    let mut key_buf = match dst.parse().unwrap() {
+        IpAddr::V4(a) => a.octets().to_vec(),
+        IpAddr::V6(a) => a.octets().to_vec(),
+    };
+    key_buf.push(prefix_len);
+
+    let mut param_buf = idx.to_le_bytes().to_vec();
+    let mask_buf = mask.to_le_bytes().to_vec();
+    param_buf.extend_from_slice(&mask_buf);
+
+    (key_buf, param_buf)
+}
+
+// Create an entry for the multipath index -> forwarding data table
+fn router_forward_entry(idx: u16, gw: &str, port: u16) -> (Vec<u8>, Vec<u8>) {
+    let key_buf = idx.to_le_bytes().to_vec();
+
+    let mut param_buf = port.to_le_bytes().to_vec();
+
+    let mut nexthop_buf = match gw.parse().unwrap() {
+        IpAddr::V4(a) => a.octets().to_vec(),
+        IpAddr::V6(a) => a.octets().to_vec(),
+    };
+    nexthop_buf.reverse();
+    param_buf.extend_from_slice(&nexthop_buf);
+
+    (key_buf, param_buf)
 }
 
 fn router_entry(
