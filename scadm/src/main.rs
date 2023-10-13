@@ -53,10 +53,6 @@ enum Commands {
 
         /// Next Hop
         nexthop: Ipv4Addr,
-
-        /// Vlan id
-        #[arg(long, default_value_t = 0)]
-        vid: u16,
     },
 
     /// Remove a route from the routing table.
@@ -81,10 +77,6 @@ enum Commands {
 
         /// Next Hop
         nexthop: Ipv6Addr,
-
-        /// Vlan id
-        #[arg(long, default_value_t = 0)]
-        vid: u16,
     },
 
     /// Remove a route from the routing table.
@@ -236,7 +228,6 @@ async fn main() {
             mask,
             port,
             nexthop,
-            vid,
         } => {
             let mut keyset_data: Vec<u8> = destination.octets().into();
             keyset_data.push(mask);
@@ -245,7 +236,6 @@ async fn main() {
             let mut nexthop_data: Vec<u8> = nexthop.octets().into();
             nexthop_data.reverse();
             parameter_data.extend_from_slice(&nexthop_data);
-            parameter_data.extend_from_slice(&vid.to_le_bytes());
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
@@ -277,7 +267,6 @@ async fn main() {
             mask,
             port,
             nexthop,
-            vid,
         } => {
             let mut keyset_data: Vec<u8> = destination.octets().into();
             keyset_data.push(mask);
@@ -286,7 +275,6 @@ async fn main() {
             let mut nexthop_data: Vec<u8> = nexthop.octets().into();
             nexthop_data.reverse();
             parameter_data.extend_from_slice(&nexthop_data);
-            parameter_data.extend_from_slice(&vid.to_le_bytes());
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
@@ -730,8 +718,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             Some((a, m)) => format!("{a}/{m}"),
             None => "?".into(),
         };
-        let gw = match get_port_addr_vlan(&e.parameter_data, false) {
-            Some((a, p, v)) => format!("{a} ({p}) vid={v}"),
+        let gw = match get_port_addr(&e.parameter_data, false) {
+            Some((a, p)) => format!("{a} ({p})"),
             None => "?".into(),
         };
         println!("{tgt} -> {gw}");
@@ -742,8 +730,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             Some((a, m)) => format!("{a}/{m}"),
             None => "?".into(),
         };
-        let gw = match get_port_addr_vlan(&e.parameter_data, false) {
-            Some((a, p, v)) => format!("{a} ({p}) vid={v}"),
+        let gw = match get_port_addr(&e.parameter_data, false) {
+            Some((a, p)) => format!("{a} ({p})"),
             None => "?".into(),
         };
         println!("{tgt} -> {gw}");
@@ -956,25 +944,6 @@ fn get_port_addr(data: &[u8], rev: bool) -> Option<(IpAddr, u16)> {
         18 => Some((
             get_addr(&data[2..], rev)?,
             u16::from_le_bytes([data[0], data[1]]),
-        )),
-        _ => {
-            println!("expected [port, address], found: {data:x?}");
-            None
-        }
-    }
-}
-
-fn get_port_addr_vlan(data: &[u8], rev: bool) -> Option<(IpAddr, u16, u16)> {
-    match data.len() {
-        8 => Some((
-            get_addr(&data[2..6], rev)?,
-            u16::from_le_bytes([data[0], data[1]]),
-            u16::from_le_bytes([data[6], data[7]]),
-        )),
-        20 => Some((
-            get_addr(&data[2..18], rev)?,
-            u16::from_le_bytes([data[0], data[1]]),
-            u16::from_le_bytes([data[18], data[19]]),
         )),
         _ => {
             println!("expected [port, address], found: {data:x?}");

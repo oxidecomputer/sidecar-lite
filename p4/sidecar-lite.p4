@@ -510,16 +510,14 @@ control router_v4(
     in bit<32> dst,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
-    out bit<12> vid_out,
 ) {
     action drop() {
         egress.drop = true;
     }
 
-    action forward(bit<16> port, bit<32> nexthop, bit<12> vid) {
+    action forward(bit<16> port, bit<32> nexthop) {
         egress.port = port;
         egress.nexthop_v4 = nexthop;
-        vid_out = vid;
     }
 
     table rtr {
@@ -542,18 +540,16 @@ control router_v6(
     in bit<128> dst,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
-    out bit<12> vid_out,
 ) {
 
     action drop() {
         egress.drop = true;
     }
 
-    action forward(bit<16> port, bit<128> nexthop, bit<12> vid) {
+    action forward(bit<16> port, bit<128> nexthop) {
         egress.drop = false;
         egress.port = port;
         egress.nexthop_v6 = nexthop;
-        vid_out = vid;
     }
 
     table rtr {
@@ -577,107 +573,26 @@ control router(
     inout headers_t hdr,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
-    in bool reverse_path_filter,
 ) {
     router_v4() v4;
     router_v6() v6;
 
     apply {
-        bit<12> vid = 12w0;
         bit<16> outport = 0;
 
         if (hdr.ipv4.isValid()) {
-            v4.apply(hdr.ipv4.dst, ingress, egress, vid);
+            v4.apply(hdr.ipv4.dst, ingress, egress);
             if (egress.drop == true) {
                 return;
             }
             outport = egress.port;
-
-            if (reverse_path_filter) {
-                v4.apply(hdr.ipv4.src, ingress, egress, vid);
-                if (egress.drop == true) {
-                    return;
-                }
-                egress.port = outport;
-                if (vid > 12w1) {
-                    if (hdr.vlan.isValid() == false) {
-                        egress.drop = true;
-                        return;
-                    }
-                    if (hdr.vlan.vid != vid) {
-                        egress.drop = true;
-                        return;
-                    }
-                }
-            } else {
-                if (vid > 12w1) {
-                    hdr.vlan.setValid();
-                    hdr.vlan.pcp = 3w0;
-                    hdr.vlan.dei = 1w0;
-                    hdr.vlan.vid = vid;
-                    hdr.vlan.ether_type = hdr.ethernet.ether_type;
-                    hdr.ethernet.ether_type = 16w0x8100;
-                }
-            }
-
         }
         if (hdr.ipv6.isValid()) {
-            v6.apply(hdr.ipv6.dst, ingress, egress, vid);
+            v6.apply(hdr.ipv6.dst, ingress, egress);
             if (egress.drop == true) {
                 return;
             }
             outport = egress.port;
-
-            if (hdr.geneve.isValid() == false) {
-                if (reverse_path_filter) {
-                    v6.apply(hdr.ipv6.src, ingress, egress, vid);
-                    if (egress.drop == true) {
-                        return;
-                    }
-                    egress.port = outport;
-                    if (vid > 12w1) {
-                        if (hdr.vlan.isValid() != true) {
-                            egress.drop = true;
-                            return;
-                        }
-                        if (hdr.vlan.vid != vid) {
-                            egress.drop = true;
-                        }
-                    }
-                } else {
-                    if (vid > 12w1) {
-                        hdr.vlan.setValid();
-                        hdr.vlan.pcp = 3w0;
-                        hdr.vlan.dei = 1w0;
-                        hdr.vlan.vid = vid;
-                        hdr.vlan.ether_type = hdr.ethernet.ether_type;
-                        hdr.ethernet.ether_type = 16w0x8100;
-                    }
-                }
-            }
-
-
-            if (reverse_path_filter) {
-                if (hdr.inner_ipv4.isValid()) {
-                    v4.apply(hdr.inner_ipv4.src, ingress, egress, vid);
-                    if (egress.drop == true) {
-                        return;
-                    }
-                    egress.port = outport;
-                    if (vid > 12w1) {
-                        if (hdr.vlan.isValid() != true) {
-                            egress.drop = true;
-                            return;
-                        }
-                        if (hdr.vlan.vid != vid) {
-                            egress.drop = true;
-                            return;
-                        }
-                        hdr.inner_eth.ether_type = 16w0x0800;
-                        hdr.vlan.setInvalid();
-                    }
-                }
-            } 
         }
     }
 
@@ -831,7 +746,7 @@ control ingress(
                     hdr.icmp.setValid();
                     hdr.inner_icmp.setInvalid();
                 }
-                router.apply(hdr, ingress, egress, false);
+                router.apply(hdr, ingress, egress);
                 if (egress.drop == false) {
                     resolver.apply(hdr, egress);
                 }
@@ -868,13 +783,7 @@ control ingress(
 
             // check for ingress nat
             nat.apply(hdr, ingress, egress);
-
-            if (ingress.nat) {
-                router.apply(hdr, ingress, egress, true);
-            } else {
-                router.apply(hdr, ingress, egress, false);
-            }
-
+	    router.apply(hdr, ingress, egress);
             resolver.apply(hdr, egress);
         }
 

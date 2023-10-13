@@ -47,7 +47,7 @@ pub struct GeneveOpt {
 
 fn pipeline_init(pipeline: &mut main_pipeline) {
     // router entry upstream
-    let (key_buf, param_buf) = router_entry("0.0.0.0", 0, "1.2.3.1", 1, 20);
+    let (key_buf, param_buf) = router_entry("0.0.0.0", 0, "1.2.3.1", 1, 0);
     pipeline
         .add_ingress_router_v4_rtr_entry("forward", &key_buf, &param_buf, 0);
 
@@ -206,7 +206,6 @@ fn vlan_routing_egress() -> Result<(), anyhow::Error> {
     println!("Decapped IP: {:#?}", decapped_ip);
     println!("Decapped UDP: {:#?}", decapped_udp);
 
-    assert_eq!(f.vid, Some(20));
     assert_eq!(
         Ipv4Packet::new(&inner_ip_data.clone()).unwrap(),
         decapped_ip
@@ -264,7 +263,7 @@ fn vlan_routing_ingress() -> Result<(), anyhow::Error> {
     // ---- CASE 1 ----
     // This frame should get through
     // ----------------
-    phy1.send(&[TxFrame::newv(phy0.mac, 0x0800, &ip_data, 20)])?;
+    phy1.send(&[TxFrame::new(phy0.mac, 0x0800, &ip_data)])?;
     std::thread::sleep(std::time::Duration::from_millis(250));
     assert_eq!(phy0.recv_buffer_len(), 1);
 
@@ -300,13 +299,6 @@ fn vlan_routing_ingress() -> Result<(), anyhow::Error> {
     assert_eq!(geneve_opt.get_critical_option(), 0);
     assert_eq!(geneve_opt.get_option_type(), 0);
     assert_eq!(geneve_opt.get_option_len(), 0);
-
-    // ---- CASE 2 ----
-    // This frame should not get through (wrong vlan)
-    // ----------------
-    phy1.send(&[TxFrame::newv(phy0.mac, 0x0800, &ip_data, 30)])?;
-    std::thread::sleep(std::time::Duration::from_millis(250));
-    assert_eq!(phy0.recv_buffer_len(), 0);
 
     Ok(())
 }
