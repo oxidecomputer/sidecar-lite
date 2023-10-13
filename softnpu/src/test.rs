@@ -47,12 +47,12 @@ pub struct GeneveOpt {
 
 fn pipeline_init(pipeline: &mut main_pipeline) {
     // router entry upstream
-    let (key_buf, param_buf) = router_entry("0.0.0.0", 0, "1.2.3.1", 1, 0);
+    let (key_buf, param_buf) = router_entry("0.0.0.0", 0, "1.2.3.1", 1);
     pipeline
         .add_ingress_router_v4_rtr_entry("forward", &key_buf, &param_buf, 0);
 
     // router entry downstream
-    let (key_buf, param_buf) = router_entry("fd00:1::", 64, "fe80::1", 0, 0);
+    let (key_buf, param_buf) = router_entry("fd00:1::", 64, "fe80::1", 0);
     pipeline
         .add_ingress_router_v6_rtr_entry("forward", &key_buf, &param_buf, 0);
 
@@ -308,7 +308,6 @@ fn router_entry(
     prefix_len: u8,
     gw: &str,
     port: u16,
-    vlan: u16,
 ) -> (Vec<u8>, Vec<u8>) {
     let mut key_buf = match dst.parse().unwrap() {
         IpAddr::V4(a) => a.octets().to_vec(),
@@ -324,9 +323,6 @@ fn router_entry(
     };
     nexthop_buf.reverse();
     param_buf.extend_from_slice(&nexthop_buf);
-
-    let vid_buf = (vlan).to_le_bytes();
-    param_buf.extend_from_slice(&vid_buf);
 
     (key_buf, param_buf)
 }
