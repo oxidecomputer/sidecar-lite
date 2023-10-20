@@ -506,8 +506,7 @@ control resolver(
             
 }
 
-control router_v4(
-    in bit<32> dst,
+control router_v4_route(
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
@@ -522,11 +521,45 @@ control router_v4(
 
     table rtr {
         key = {
-            dst: lpm;
+            ingress.path_idx: exact;
+        }
+        actions = {
+            forward;
+        }
+	// should never happen, but the compiler requires a default
+        default_action = drop;
+    }
+
+    apply {
+        rtr.apply();
+    }
+}
+
+control router_v4_idx(
+    in bit<32> dst_addr,
+    in bit<32> src_addr,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
+) {
+    Checksum() csum;
+
+    action drop() {
+        egress.drop = true;
+    }
+
+    action index(bit<16> idx, bit<16> mask) {
+        bit<16> hash = csum.run({dst_addr, src_addr});
+        bit<16> offset = hash & mask;
+        ingress.path_idx = idx + offset;
+    }
+
+    table rtr {
+        key = {
+            dst_addr: lpm;
         }
         actions = {
             drop;
-            forward;
+            index;
         }
         default_action = drop;
     }
@@ -574,18 +607,20 @@ control router(
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
-    router_v4() v4;
+    router_v4_idx() v4_idx;
+    router_v4_route() v4_route;
     router_v6() v6;
 
     apply {
         bit<16> outport = 0;
 
         if (hdr.ipv4.isValid()) {
-            v4.apply(hdr.ipv4.dst, ingress, egress);
+            v4_idx.apply(hdr.ipv4.dst, hdr.ipv4.src, ingress, egress);
             if (egress.drop == true) {
                 return;
             }
             outport = egress.port;
+	    v4_route.apply(ingress, egress);
         }
         if (hdr.ipv6.isValid()) {
             v6.apply(hdr.ipv6.dst, ingress, egress);
@@ -595,7 +630,6 @@ control router(
             outport = egress.port;
         }
     }
-
 }
 
 control mac_rewrite(

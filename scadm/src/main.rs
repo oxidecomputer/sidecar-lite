@@ -2,6 +2,7 @@
 
 use p4rs::TableEntry;
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::io::Write;
@@ -207,7 +208,8 @@ enum Commands {
     },
 }
 
-const ROUTER_V4: &str = "ingress.router.v4.rtr";
+const ROUTER_V4_RT: &str = "ingress.router.v4_route.rtr";
+const ROUTER_V4_IDX: &str = "ingress.router.v4_idx.rtr";
 const ROUTER_V6: &str = "ingress.router.v6.rtr";
 const LOCAL_V6: &str = "ingress.local.local_v6";
 const LOCAL_V4: &str = "ingress.local.local_v4";
@@ -217,6 +219,78 @@ const RESOLVER_V4: &str = "ingress.resolver.resolver_v4";
 const RESOLVER_V6: &str = "ingress.resolver.resolver_v6";
 const MAC_REWRITE: &str = "ingress.mac.mac_rewrite";
 const PROXY_ARP: &str = "ingress.pxarp.proxy_arp";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct Ipv4Cidr {
+    address: Ipv4Addr,
+    mask: u8,
+}
+
+struct V4RouteData {
+    data: BTreeMap<Ipv4Cidr, u16>,
+}
+
+impl V4RouteData {
+    // Given the full set of tables, extract the data from the route->idx table
+    fn extract_route_idx(
+        full: &BTreeMap<String, Vec<TableEntry>>,
+    ) -> BTreeMap<Ipv4Cidr, u16> {
+        let mut table = BTreeMap::new();
+        for e in full.get(ROUTER_V4_IDX).unwrap() {
+            let subnet = match get_addr_subnet(&e.keyset_data) {
+                Some((IpAddr::V4(address), mask)) => Ipv4Cidr { address, mask },
+                _ => continue,
+            };
+            let idx = match get_v4_idx_mask(&e.parameter_data) {
+                Some((idx, _mask)) => idx,
+                None => continue,
+            };
+            table.insert(subnet, idx);
+        }
+        table
+    }
+
+    // Fetch the v4 route->idx table
+    pub async fn load(cli: &Cli) -> Self {
+        let data = match cli.mode {
+            Mode::Standalone => {
+                let (tx, rx) = std::sync::mpsc::channel();
+                let uds = bind_uds(cli);
+                let j = tokio::spawn(async move {
+                    if let ManagementResponse::DumpResponse(ref tables) =
+                        recv_uds(uds).await
+                    {
+                        let table = V4RouteData::extract_route_idx(tables);
+                        tx.send(table).unwrap();
+                    }
+                });
+                send(ManagementRequest::DumpRequest, cli).await;
+                j.await.unwrap();
+                rx.recv().unwrap().clone()
+            }
+            Mode::Propolis => {
+                V4RouteData::extract_route_idx(&dump_tables_propolis())
+            }
+        };
+        Self { data }
+    }
+
+    // Given a route destination, find the corresponding table index
+    pub fn lookup(&self, address: Ipv4Addr, mask: u8) -> Option<u16> {
+        let cidr = Ipv4Cidr { address, mask };
+        self.data.get(&cidr).copied()
+    }
+
+    // Find an open slot in the route table
+    pub fn find_available(&self) -> u16 {
+        let used: BTreeSet<u16> = self.data.values().cloned().collect();
+        let mut i = 0;
+        while used.contains(&i) {
+            i += 1;
+        }
+        i
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -229,8 +303,11 @@ async fn main() {
             port,
             nexthop,
         } => {
-            let mut keyset_data: Vec<u8> = destination.octets().into();
-            keyset_data.push(mask);
+            let table = V4RouteData::load(&cli).await;
+            let idx = table.find_available();
+
+            // Add idx->route to the route table
+            let keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
 
             let mut parameter_data = port.to_le_bytes().to_vec();
             let mut nexthop_data: Vec<u8> = nexthop.octets().into();
@@ -239,8 +316,27 @@ async fn main() {
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
-                    table: ROUTER_V4.into(),
+                    table: ROUTER_V4_RT.into(),
                     action: "forward".into(),
+                    keyset_data,
+                    parameter_data,
+                }),
+                &cli,
+            )
+            .await;
+
+            // Now add cidr->idx to the index table
+            let mut keyset_data: Vec<u8> = destination.octets().into();
+            keyset_data.push(mask);
+
+            let mut parameter_data = idx.to_le_bytes().to_vec();
+            // Hardcode a mask of 0
+            parameter_data.extend_from_slice(&0u16.to_le_bytes());
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: ROUTER_V4_IDX.into(),
+                    action: "index".into(),
                     keyset_data,
                     parameter_data,
                 }),
@@ -249,17 +345,33 @@ async fn main() {
             .await;
         }
         Commands::RemoveRoute4 { destination, mask } => {
-            let mut keyset_data: Vec<u8> = destination.octets().into();
-            keyset_data.push(mask);
+            let table = V4RouteData::load(&cli).await;
+            if let Some(idx) = table.lookup(destination, mask) {
+                // Remove the entry from the subnet->idx table
+                let mut keyset_data: Vec<u8> = destination.octets().into();
+                keyset_data.push(mask);
 
-            send(
-                ManagementRequest::TableRemove(TableRemove {
-                    table: ROUTER_V4.into(),
-                    keyset_data,
-                }),
-                &cli,
-            )
-            .await;
+                send(
+                    ManagementRequest::TableRemove(TableRemove {
+                        table: ROUTER_V4_IDX.into(),
+                        keyset_data,
+                    }),
+                    &cli,
+                )
+                .await;
+
+                // Remove the entry from the idx->route table table
+                let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+                keyset_data.push(mask);
+                send(
+                    ManagementRequest::TableRemove(TableRemove {
+                        table: ROUTER_V4_RT.into(),
+                        keyset_data,
+                    }),
+                    &cli,
+                )
+                .await;
+            }
         }
 
         Commands::AddRoute6 {
@@ -724,17 +836,29 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         };
         println!("{tgt} -> {gw}");
     }
-    println!("router v4:");
-    for e in table.get(ROUTER_V4).unwrap() {
+    println!("router v4_idx:");
+    for e in table.get(ROUTER_V4_IDX).unwrap() {
         let tgt = match get_addr_subnet(&e.keyset_data) {
             Some((a, m)) => format!("{a}/{m}"),
+            None => "?".into(),
+        };
+        let idx = match get_v4_idx_mask(&e.parameter_data) {
+            Some((idx, _mask)) => format!("{idx}"),
+            None => "?".into(),
+        };
+        println!("{tgt} -> {idx}");
+    }
+    println!("router v4_routes:");
+    for e in table.get(ROUTER_V4_RT).unwrap() {
+        let idx = match get_u16(&e.keyset_data) {
+            Some(idx) => format!("{idx}"),
             None => "?".into(),
         };
         let gw = match get_port_addr(&e.parameter_data, false) {
             Some((a, p)) => format!("{a} ({p})"),
             None => "?".into(),
         };
-        println!("{tgt} -> {gw}");
+        println!("{idx} -> {gw}");
     }
 
     println!("resolver v4:");
@@ -875,11 +999,34 @@ fn get_addr(data: &[u8], rev: bool) -> Option<IpAddr> {
     }
 }
 
+fn get_u16(data: &[u8]) -> Option<u16> {
+    match data.len() {
+        2 => Some(u16::from_le_bytes([data[0], data[1]])),
+        _ => {
+            println!("expected u16, found: {data:x?}");
+            None
+        }
+    }
+}
+
 fn get_mac(data: &[u8]) -> Option<[u8; 6]> {
     match data.len() {
         6 => Some(data.try_into().unwrap()),
         _ => {
             println!("expected mac address, found: {data:x?}");
+            None
+        }
+    }
+}
+
+fn get_v4_idx_mask(data: &[u8]) -> Option<(u16, u16)> {
+    match data.len() {
+        4 => Some((
+            u16::from_le_bytes([data[0], data[1]]),
+            u16::from_le_bytes([data[2], data[3]]),
+        )),
+        _ => {
+            println!("expected [index, mask], found: {data:x?}");
             None
         }
     }
