@@ -48,7 +48,7 @@ pub struct GeneveOpt {
 fn pipeline_init(pipeline: &mut main_pipeline) {
     // router entry upstream
     // Add a single path for 0.0.0.0/0 pointing at data in slot 2.
-    let (key_buf, param_buf) = router_idx_entry("0.0.0.0", 0, 2, 0);
+    let (key_buf, param_buf) = router_idx_entry("0.0.0.0", 0, 2, 1);
     pipeline
         .add_ingress_router_v4_idx_rtr_entry("index", &key_buf, &param_buf, 0);
 
@@ -315,7 +315,7 @@ fn router_idx_entry(
     dst: &str,
     prefix_len: u8,
     idx: u16,
-    mask: u16,
+    slots: u16,
 ) -> (Vec<u8>, Vec<u8>) {
     let mut key_buf = match dst.parse().unwrap() {
         IpAddr::V4(a) => a.octets().to_vec(),
@@ -324,8 +324,8 @@ fn router_idx_entry(
     key_buf.push(prefix_len);
 
     let mut param_buf = idx.to_le_bytes().to_vec();
-    let mask_buf = mask.to_le_bytes().to_vec();
-    param_buf.extend_from_slice(&mask_buf);
+    let slots_buf = slots.to_le_bytes().to_vec();
+    param_buf.extend_from_slice(&slots_buf);
 
     (key_buf, param_buf)
 }

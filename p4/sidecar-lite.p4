@@ -549,7 +549,7 @@ control router_v4_idx(
 
     action index(bit<16> idx, bit<8> slots) {
         bit<16> hash = csum.run({dst_addr, src_addr});
-	bit<16> extended_slots = slots;
+        bit<16> extended_slots = slots;
         bit<16> offset = hash % extended_slots;
         ingress.path_idx = idx + offset;
     }
