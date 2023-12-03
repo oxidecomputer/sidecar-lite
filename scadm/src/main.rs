@@ -1,6 +1,6 @@
 // Copyright 2022 Oxide Computer Company
 
-use p4rs::TableEntry;
+use softnpu::p4rs::TableEntry;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::fs::OpenOptions;
