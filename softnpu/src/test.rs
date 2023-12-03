@@ -315,7 +315,7 @@ fn router_idx_entry(
     dst: &str,
     prefix_len: u8,
     idx: u16,
-    slots: u16,
+    slots: u8,
 ) -> (Vec<u8>, Vec<u8>) {
     let mut key_buf = match dst.parse().unwrap() {
         IpAddr::V4(a) => a.octets().to_vec(),
