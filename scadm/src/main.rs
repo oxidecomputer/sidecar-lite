@@ -241,8 +241,8 @@ impl V4RouteData {
                 Some((IpAddr::V4(address), mask)) => Ipv4Cidr { address, mask },
                 _ => continue,
             };
-            let idx = match get_v4_idx_mask(&e.parameter_data) {
-                Some((idx, _mask)) => idx,
+            let idx = match get_v4_idx_slots(&e.parameter_data) {
+                Some((idx, _slots)) => idx,
                 None => continue,
             };
             table.insert(subnet, idx);
@@ -842,8 +842,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             Some((a, m)) => format!("{a}/{m}"),
             None => "?".into(),
         };
-        let idx = match get_v4_idx_mask(&e.parameter_data) {
-            Some((idx, _mask)) => format!("{idx}"),
+        let idx = match get_v4_idx_slots(&e.parameter_data) {
+            Some((idx, _slots)) => format!("{idx}"),
             None => "?".into(),
         };
         println!("{tgt} -> {idx}");
@@ -1019,14 +1019,14 @@ fn get_mac(data: &[u8]) -> Option<[u8; 6]> {
     }
 }
 
-fn get_v4_idx_mask(data: &[u8]) -> Option<(u16, u16)> {
+fn get_v4_idx_slots(data: &[u8]) -> Option<(u16, u8)> {
     match data.len() {
-        4 => Some((
+        3 => Some((
             u16::from_le_bytes([data[0], data[1]]),
-            u16::from_le_bytes([data[2], data[3]]),
+            u8::from_le_bytes([data[2]]),
         )),
         _ => {
-            println!("expected [index, mask], found: {data:x?}");
+            println!("expected [index, slots], found: {data:x?}");
             None
         }
     }
