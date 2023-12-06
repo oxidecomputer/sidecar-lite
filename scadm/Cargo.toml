@@ -18,4 +18,4 @@ macaddr.workspace = true
 
 [dependencies.softnpu]
 git = "https://github.com/oxidecomputer/softnpu"
-branch = "nils_test"
+branch = "main"
