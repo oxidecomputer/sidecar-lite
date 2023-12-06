@@ -1412,7 +1412,7 @@ checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=mod#e1d66d0cb412b08dfd906654051c0fdaace37d0d"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#b1007658f9638dfc60af75286ff5c108d6b2714c"
 dependencies = [
  "colored",
  "regex",
@@ -1421,7 +1421,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=mod#e1d66d0cb412b08dfd906654051c0fdaace37d0d"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#b1007658f9638dfc60af75286ff5c108d6b2714c"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1434,7 +1434,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=mod#e1d66d0cb412b08dfd906654051c0fdaace37d0d"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#b1007658f9638dfc60af75286ff5c108d6b2714c"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1447,7 +1447,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=mod#e1d66d0cb412b08dfd906654051c0fdaace37d0d"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#b1007658f9638dfc60af75286ff5c108d6b2714c"
 dependencies = [
  "bitvec",
  "colored",
@@ -1911,9 +1911,9 @@ checksum = "d626bb9dae77e28219937af045c257c28bfd3f69333c512553507f5f9798cb76"
 
 [[package]]
 name = "rustix"
-version = "0.37.19"
+version = "0.37.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acf8729d8542766f1b2cf77eb034d52f40d375bb8b615d0b147089946e16613d"
+checksum = "fea8ca367a3a01fe35e6943c400addf443c0f57670e6ec51196f71a4b8762dd2"
 dependencies = [
  "bitflags 1.3.2",
  "errno 0.3.1",
@@ -2349,7 +2349,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=nils_test#ed919c8ae1cadbab9501040585648e50ab52c2de"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#dbab082dfa89da5db5ca2325c257089d2f130092"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -2478,7 +2478,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=mod#e1d66d0cb412b08dfd906654051c0fdaace37d0d"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#b1007658f9638dfc60af75286ff5c108d6b2714c"
 dependencies = [
  "anyhow",
  "bitvec",
