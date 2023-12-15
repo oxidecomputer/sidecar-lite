@@ -329,9 +329,9 @@ async fn main() {
             let mut keyset_data: Vec<u8> = destination.octets().into();
             keyset_data.push(mask);
 
+            // Hardcoded slot count.
             let mut parameter_data = idx.to_le_bytes().to_vec();
-            // Hardcode a mask of 0
-            parameter_data.extend_from_slice(&0u16.to_le_bytes());
+            parameter_data.extend_from_slice(&1u8.to_le_bytes());
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
