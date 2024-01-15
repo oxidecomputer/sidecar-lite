@@ -14,6 +14,7 @@ use pnet_macros::Packet as PktDerive;
 use pnet_macros_support::types::{u1, u16be, u2, u24be, u3, u5, u6, u7};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::println;
+use std::sync::{Arc, Mutex};
 
 // Geneve types used to verify encap and ingress NAT behaviour.
 #[allow(dead_code)]
@@ -118,7 +119,7 @@ fn vlan_routing_egress() -> Result<(), anyhow::Error> {
     let mut pipeline = main_pipeline::new(2);
     pipeline_init(&mut pipeline);
 
-    let mut npu = SoftNpu::new(2, pipeline, false);
+    let mut npu = SoftNpu::new(2, Arc::new(Mutex::new(pipeline)), false);
     let phy0 = npu.phy(0);
     let phy1 = npu.phy(1);
 
@@ -227,7 +228,7 @@ fn vlan_routing_ingress() -> Result<(), anyhow::Error> {
     let mut pipeline = main_pipeline::new(2);
     pipeline_init(&mut pipeline);
 
-    let mut npu = SoftNpu::new(2, pipeline, false);
+    let mut npu = SoftNpu::new(2, Arc::new(Mutex::new(pipeline)), false);
     let phy0 = npu.phy(0);
     let phy1 = npu.phy(1);
 
