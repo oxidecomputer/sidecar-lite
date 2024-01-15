@@ -542,6 +542,7 @@ control router_v4_idx(
     inout egress_metadata_t egress,
 ) {
     Checksum() csum;
+    TableEntryCounter() counter;
 
     action drop() {
         egress.drop = true;
@@ -552,6 +553,7 @@ control router_v4_idx(
         bit<16> extended_slots = slots;
         bit<16> offset = hash % extended_slots;
         ingress.path_idx = idx + offset;
+        counter.count();
     }
 
     table rtr {
@@ -563,6 +565,7 @@ control router_v4_idx(
             index;
         }
         default_action = drop;
+        counters = counter;
     }
 
     apply {
@@ -575,6 +578,7 @@ control router_v6(
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
+    TableEntryCounter() counter;
 
     action drop() {
         egress.drop = true;
@@ -584,6 +588,7 @@ control router_v6(
         egress.drop = false;
         egress.port = port;
         egress.nexthop_v6 = nexthop;
+        counter.count();
     }
 
     table rtr {
@@ -595,6 +600,7 @@ control router_v6(
             forward;
         }
         default_action = drop;
+        counters = counter;
     }
 
     apply {
