@@ -507,6 +507,7 @@ control resolver(
 }
 
 control router_v4_route(
+    inout headers_t hdr,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
@@ -519,12 +520,24 @@ control router_v4_route(
         egress.nexthop_v4 = nexthop;
     }
 
+    action forward_vlan(bit<16> port, bit<32> nexthop, bit<12> vlan_id) {
+	egress.port = port;
+	egress.nexthop_v6 = nexthop;
+	hdr.vlan.pcp = 3w0;
+	hdr.vlan.dei = 1w0;
+	hdr.vlan.vid = vlan_id;
+	hdr.vlan.ether_type = hdr.ethernet.ether_type;
+	hdr.vlan.setValid();
+	hdr.ethernet.ether_type = 16w0x8100;
+    }
+
     table rtr {
         key = {
             ingress.path_idx: exact;
         }
         actions = {
             forward;
+            forward_vlan;
         }
 	// should never happen, but the compiler requires a default
         default_action = drop;
@@ -571,6 +584,7 @@ control router_v4_idx(
 }
 
 control router_v6(
+    inout headers_t hdr,
     in bit<128> dst,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
@@ -586,6 +600,18 @@ control router_v6(
         egress.nexthop_v6 = nexthop;
     }
 
+    action forward_vlan(bit<16> port, bit<128> nexthop, bit<12>vlan_id) {
+	egress.drop = false;
+	egress.port = port;
+	egress.nexthop_v6 = nexthop;
+	hdr.vlan.pcp = 3w0;
+	hdr.vlan.dei = 1w0;
+	hdr.vlan.vid = vlan_id;
+	hdr.vlan.ether_type = hdr.ethernet.ether_type;
+	hdr.vlan.setValid();
+	hdr.ethernet.ether_type = 16w0x8100;
+    }
+
     table rtr {
         key = {
             dst: lpm;
@@ -593,6 +619,7 @@ control router_v6(
         actions = {
             drop;
             forward;
+	    forward_vlan;
         }
         default_action = drop;
     }
@@ -621,10 +648,10 @@ control router(
                 return;
             }
             outport = egress.port;
-	    v4_route.apply(ingress, egress);
+	    v4_route.apply(hdr, ingress, egress);
         }
         if (hdr.ipv6.isValid()) {
-            v6.apply(hdr.ipv6.dst, ingress, egress);
+            v6.apply(hdr, hdr.ipv6.dst, ingress, egress);
             if (egress.drop == true) {
                 return;
             }
