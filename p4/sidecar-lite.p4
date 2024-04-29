@@ -78,23 +78,6 @@ parser parse(
         transition reject;
     }
 
-    state vlan {
-        pkt.extract(hdr.vlan);
-        if (hdr.vlan.ether_type == 16w0x0800) {
-            transition ipv4;
-        }
-        if (hdr.vlan.ether_type == 16w0x86dd) {
-            transition ipv6;
-        }
-        if (hdr.vlan.ether_type == 16w0x0901) {
-            transition sidecar;
-        }
-        if (hdr.vlan.ether_type == 16w0x0806) {
-            transition arp;
-        }
-        transition reject;
-    }
-
     state sidecar {
         pkt.extract(hdr.sidecar);
         if (hdr.sidecar.sc_ether_type == 16w0x86dd) {
@@ -104,6 +87,23 @@ parser parse(
             transition ipv4;
         }
         if (hdr.sidecar.sc_ether_type == 16w0x0806) {
+            transition arp;
+        }
+        if (hdr.sidecar.sc_ether_type == 16w0x8100) {
+            transition vlan;
+        }
+        transition reject;
+    }
+
+    state vlan {
+        pkt.extract(hdr.vlan);
+        if (hdr.vlan.ether_type == 16w0x0800) {
+            transition ipv4;
+        }
+        if (hdr.vlan.ether_type == 16w0x86dd) {
+            transition ipv6;
+        }
+        if (hdr.vlan.ether_type == 16w0x0806) {
             transition arp;
         }
         transition reject;
@@ -224,7 +224,7 @@ parser parse(
         }
         transition reject;
     }
-    
+
     state inner_ipv4 {
         pkt.extract(hdr.inner_ipv4);
         if (hdr.inner_ipv4.protocol == 8w17) {
@@ -326,7 +326,7 @@ control nat_ingress(
         // set up outer l3
         hdr.ipv4.setInvalid();
 
-        hdr.ipv6.version = 4w6; 
+        hdr.ipv6.version = 4w6;
         // original l2 + original l3 + encapsulating udp + encapsulating geneve + geneve opt
         hdr.ipv6.payload_len = 16w14 + orig_l3_len + 16w8 + 16w8 + 16w4;
         hdr.ipv6.next_hdr = 8w17;
@@ -464,7 +464,6 @@ control local(
             is_local = true;
         }
     }
-    
 }
 
 control resolver(
@@ -503,7 +502,6 @@ control resolver(
             resolver_v6.apply();
         }
     }
-            
 }
 
 control router_v4_route(
@@ -516,15 +514,16 @@ control router_v4_route(
 
     action forward(bit<16> port, bit<32> nexthop) {
         egress.port = port;
+	egress.vlan_id = 12w0;
         egress.nexthop_v4 = nexthop;
         egress.drop = false;
     }
 
     action forward_vlan(bit<16> port, bit<32> nexthop, bit<12> vlan_id) {
 	egress.port = port;
+	egress.vlan_id = vlan_id;
 	egress.nexthop_v4 = nexthop;
 	egress.drop = false;
-	egress.vlan_id = vlan_id;
     }
 
     table rtr {
@@ -590,17 +589,17 @@ control router_v6(
     }
 
     action forward(bit<16> port, bit<128> nexthop) {
-        egress.drop = false;
 	egress.port = port;
-	egress.vlan_id = 0;
+	egress.vlan_id = 12w0;
 	egress.nexthop_v6 = nexthop;
+        egress.drop = false;
     }
 
     action forward_vlan(bit<16> port, bit<128> nexthop, bit<12>vlan_id) {
-	egress.drop = false;
 	egress.port = port;
-	egress.nexthop_v6 = nexthop;
 	egress.vlan_id = vlan_id;
+	egress.nexthop_v6 = nexthop;
+	egress.drop = false;
     }
 
     table rtr {
@@ -638,7 +637,6 @@ control router(
             if (egress.drop == true) {
                 return;
             }
-            outport = egress.port;
 	    v4_route.apply(ingress, egress);
         }
         if (hdr.ipv6.isValid()) {
@@ -646,8 +644,8 @@ control router(
             if (egress.drop == true) {
                 return;
             }
-            outport = egress.port;
         }
+        outport = egress.port;
 	if (egress.vlan_id != 12w0) {
 	    hdr.vlan.pcp = 3w0;
 	    hdr.vlan.dei = 1w0;
