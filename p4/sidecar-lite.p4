@@ -507,7 +507,6 @@ control resolver(
 }
 
 control router_v4_route(
-    inout headers_t hdr,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
@@ -518,17 +517,14 @@ control router_v4_route(
     action forward(bit<16> port, bit<32> nexthop) {
         egress.port = port;
         egress.nexthop_v4 = nexthop;
+        egress.drop = false;
     }
 
     action forward_vlan(bit<16> port, bit<32> nexthop, bit<12> vlan_id) {
 	egress.port = port;
-	egress.nexthop_v6 = nexthop;
-	hdr.vlan.pcp = 3w0;
-	hdr.vlan.dei = 1w0;
-	hdr.vlan.vid = vlan_id;
-	hdr.vlan.ether_type = hdr.ethernet.ether_type;
-	hdr.vlan.setValid();
-	hdr.ethernet.ether_type = 16w0x8100;
+	egress.nexthop_v4 = nexthop;
+	egress.drop = false;
+	egress.vlan_id = vlan_id;
     }
 
     table rtr {
@@ -584,7 +580,6 @@ control router_v4_idx(
 }
 
 control router_v6(
-    inout headers_t hdr,
     in bit<128> dst,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
@@ -596,20 +591,16 @@ control router_v6(
 
     action forward(bit<16> port, bit<128> nexthop) {
         egress.drop = false;
-        egress.port = port;
-        egress.nexthop_v6 = nexthop;
+	egress.port = port;
+	egress.vlan_id = 0;
+	egress.nexthop_v6 = nexthop;
     }
 
     action forward_vlan(bit<16> port, bit<128> nexthop, bit<12>vlan_id) {
 	egress.drop = false;
 	egress.port = port;
 	egress.nexthop_v6 = nexthop;
-	hdr.vlan.pcp = 3w0;
-	hdr.vlan.dei = 1w0;
-	hdr.vlan.vid = vlan_id;
-	hdr.vlan.ether_type = hdr.ethernet.ether_type;
-	hdr.vlan.setValid();
-	hdr.ethernet.ether_type = 16w0x8100;
+	egress.vlan_id = vlan_id;
     }
 
     table rtr {
@@ -648,15 +639,23 @@ control router(
                 return;
             }
             outport = egress.port;
-	    v4_route.apply(hdr, ingress, egress);
+	    v4_route.apply(ingress, egress);
         }
         if (hdr.ipv6.isValid()) {
-            v6.apply(hdr, hdr.ipv6.dst, ingress, egress);
+            v6.apply(hdr.ipv6.dst, ingress, egress);
             if (egress.drop == true) {
                 return;
             }
             outport = egress.port;
         }
+	if (egress.vlan_id != 12w0) {
+	    hdr.vlan.pcp = 3w0;
+	    hdr.vlan.dei = 1w0;
+	    hdr.vlan.vid = egress.vlan_id;
+	    hdr.vlan.ether_type = hdr.ethernet.ether_type;
+	    hdr.vlan.setValid();
+	    hdr.ethernet.ether_type = 16w0x8100;
+	}
     }
 }
 
