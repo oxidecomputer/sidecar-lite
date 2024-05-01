@@ -81,7 +81,8 @@ fn pipeline_init(pipeline: &mut main_pipeline) {
 
     // boundary services loopback ip entry
     let (key_buf, param_buf) = local6_entry("fd00:99::1");
-    pipeline.add_ingress_local_local_v6_entry("local", &key_buf, &param_buf, 0);
+    pipeline
+        .add_ingress_local_v6_addrs_tbl_entry("local", &key_buf, &param_buf, 0);
 
     // resolver entry for upstream gateway
     let (key_buf, param_buf) =

@@ -414,11 +414,11 @@ control nat_ingress(
 
 }
 
-control local(
-    inout headers_t hdr,
+control local_v4(
+    in bit<32> addr,
     out bool is_local,
+    out bit<12> vid,
 ) {
-
     action nonlocal() {
         is_local = false;
     }
@@ -427,9 +427,14 @@ control local(
         is_local = true;
     }
 
-    table local_v6 {
+    action local_vid(bit<12> vlan_id) {
+        is_local = true;
+        vid = vlan_id;
+    }
+
+    table tbl {
         key = {
-            hdr.ipv6.dst: exact;
+            addr: exact;
         }
         actions = {
             local;
@@ -437,10 +442,33 @@ control local(
         }
         default_action = nonlocal;
     }
+    
+    apply {
+        tbl.apply();
+    }
+}
 
-    table local_v4 {
+control local_v6(
+    in bit<128> addr,
+    out bool is_local,
+    out bit<12> vid,
+) {
+    action nonlocal() {
+        is_local = false;
+    }
+
+    action local() {
+        is_local = true;
+    }
+
+    action local_vid(bit<12> vlan_id) {
+        is_local = true;
+        vid = vlan_id;
+    }
+
+    table tbl {
         key = {
-            hdr.ipv4.dst: exact;
+            addr: exact;
         }
         actions = {
             local;
@@ -450,15 +478,38 @@ control local(
     }
 
     apply {
+        tbl.apply();
+    }
+}
+
+control local(
+    inout headers_t hdr,
+    in bool match_source,
+    out bool is_local,
+    out bit<12> vid,
+) {
+
+    local_v4() v4_addrs;
+    local_v6() v6_addrs;
+
+    apply {
         if(hdr.ipv6.isValid()) {
-            local_v6.apply();
+            if (match_source) {
+                v6_addrs.apply(hdr.ipv6.src, is_local, vid);
+            } else {
+                v6_addrs.apply(hdr.ipv6.dst, is_local, vid);
+            }
             bit<16> ll = 16w0xff02;
             if(hdr.ipv6.dst[127:112] == ll) {
                 is_local = true;
             }
         }
         if(hdr.ipv4.isValid()) {
-            local_v4.apply();
+            if (match_source) {
+                v4_addrs.apply(hdr.ipv4.src, is_local, vid);
+            } else {
+                v4_addrs.apply(hdr.ipv4.dst, is_local, vid);
+            }
         }
         if(hdr.arp.isValid()) {
             is_local = true;
@@ -507,6 +558,7 @@ control resolver(
 }
 
 control router_v4_route(
+    inout headers_t hdr,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
@@ -519,14 +571,26 @@ control router_v4_route(
         egress.nexthop_v4 = nexthop;
     }
 
+    action forward_vlan(bit<16> port, bit<32> nexthop, bit<12> vlan_id) {
+        hdr.vlan.pcp = 3w0;
+        hdr.vlan.dei = 1w0;
+        hdr.vlan.vid = vlan_id;
+        hdr.vlan.ether_type = hdr.ethernet.ether_type;
+        hdr.vlan.setValid();
+        hdr.ethernet.ether_type = 16w0x8100;
+        egress.port = port;
+        egress.nexthop_v4 = nexthop;
+    }
+
     table rtr {
         key = {
             ingress.path_idx: exact;
         }
         actions = {
             forward;
+            forward_vlan;
         }
-	// should never happen, but the compiler requires a default
+        // should never happen, but the compiler requires a default
         default_action = drop;
     }
 
@@ -571,7 +635,7 @@ control router_v4_idx(
 }
 
 control router_v6(
-    in bit<128> dst,
+    inout headers_t hdr,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
@@ -586,9 +650,21 @@ control router_v6(
         egress.nexthop_v6 = nexthop;
     }
 
+    action forward_vlan(bit<16> port, bit<128> nexthop, bit<12> vlan_id) {
+        hdr.vlan.pcp = 3w0;
+        hdr.vlan.dei = 1w0;
+        hdr.vlan.vid = vlan_id;
+        hdr.vlan.ether_type = hdr.ethernet.ether_type;
+        hdr.vlan.setValid();
+        hdr.ethernet.ether_type = 16w0x8100;
+        egress.drop = false;
+        egress.port = port;
+        egress.nexthop_v6 = nexthop;
+    }
+
     table rtr {
         key = {
-            dst: lpm;
+            hdr.ipv6.dst: lpm;
         }
         actions = {
             drop;
@@ -621,10 +697,10 @@ control router(
                 return;
             }
             outport = egress.port;
-	    v4_route.apply(ingress, egress);
+            v4_route.apply(hdr, ingress, egress);
         }
         if (hdr.ipv6.isValid()) {
-            v6.apply(hdr.ipv6.dst, ingress, egress);
+            v6.apply(hdr, ingress, egress);
             if (egress.drop == true) {
                 return;
             }
@@ -718,6 +794,18 @@ control ingress(
             hdr.ethernet.ether_type = hdr.sidecar.sc_ether_type;
             hdr.sidecar.setInvalid();
 
+            bool _local_src;
+            bit<12> vlan_id;
+            local.apply(hdr, true, _local_src, vlan_id);
+            if (vlan_id != 12w0) {
+                hdr.vlan.pcp = 3w0;
+                hdr.vlan.dei = 1w0;
+                hdr.vlan.vid = vlan_id;
+                hdr.vlan.ether_type = hdr.ethernet.ether_type;
+                hdr.vlan.setValid();
+                hdr.ethernet.ether_type = 16w0x8100;
+            }
+
             // No more processing is required for sidecar packets, they simply
             // go out the sidecar port corresponding to the source scrimlet
             // port. No sort of hairpin back to the scrimlet is supported.
@@ -740,7 +828,8 @@ control ingress(
         //
 
         bool local_dst = false;
-        local.apply(hdr, local_dst);
+        bit<12> _vid = 12w0;
+        local.apply(hdr, false, local_dst, _vid);
 
         if (local_dst) {
 
@@ -818,7 +907,7 @@ control ingress(
 
             // check for ingress nat
             nat.apply(hdr, ingress, egress);
-	    router.apply(hdr, ingress, egress);
+            router.apply(hdr, ingress, egress);
             resolver.apply(hdr, egress);
         }
 
