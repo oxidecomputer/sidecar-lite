@@ -830,11 +830,21 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             Some((a, m)) => format!("{a}/{m}"),
             None => "?".into(),
         };
-        let gw = match get_port_addr(&e.parameter_data, false) {
-            Some((a, p)) => format!("{a} ({p})"),
-            None => "?".into(),
-        };
-        println!("{tgt} -> {gw}");
+        if e.action_id == "forward" {
+            let gw = match get_port_addr(&e.parameter_data, false) {
+                Some((a, p)) => format!("{a} ({p})"),
+                None => "?".into(),
+            };
+            println!("{tgt} -> {gw}");
+        } else if e.action_id == "forward_vlan" {
+            let gw = match get_port_addr_vlan(&e.parameter_data, false) {
+                Some((a, p, v)) => format!("{a} ({p}) vid: {v}"),
+                None => "?".into(),
+            };
+            println!("{tgt} -> {gw}");
+        } else {
+            println!("unrecognized action: {}", e.action_id);
+        }
     }
     println!("router v4_idx:");
     for e in table.get(ROUTER_V4_IDX).unwrap() {
@@ -854,11 +864,21 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             Some(idx) => format!("{idx}"),
             None => "?".into(),
         };
-        let gw = match get_port_addr(&e.parameter_data, false) {
-            Some((a, p)) => format!("{a} ({p})"),
-            None => "?".into(),
-        };
-        println!("{idx} -> {gw}");
+        if e.action_id == "forward" {
+            let gw = match get_port_addr(&e.parameter_data, false) {
+                Some((a, p)) => format!("{a} ({p})"),
+                None => "?".into(),
+            };
+            println!("{idx} -> {gw}");
+        } else if e.action_id == "forward_vlan" {
+            let gw = match get_port_addr_vlan(&e.parameter_data, false) {
+                Some((a, p, v)) => format!("{a} ({p}) vid: {v}"),
+                None => "?".into(),
+            };
+            println!("{idx} -> {gw}");
+        } else {
+            println!("unrecognized action: {}", e.action_id);
+        }
     }
 
     println!("resolver v4:");
@@ -1081,7 +1101,6 @@ fn get_addr_nat_id(data: &[u8]) -> Option<(IpAddr, u16, u16)> {
     }
 }
 
-#[allow(dead_code)]
 fn get_port_addr(data: &[u8], rev: bool) -> Option<(IpAddr, u16)> {
     match data.len() {
         6 => Some((
@@ -1097,6 +1116,24 @@ fn get_port_addr(data: &[u8], rev: bool) -> Option<(IpAddr, u16)> {
             None
         }
     }
+}
+
+fn get_port_addr_vlan(data: &[u8], rev: bool) -> Option<(IpAddr, u16, u16)> {
+    // The order of arguments is (port, nexthop, vlan_id), so the offset of
+    // the vlan_id in the vector is determined by the size of the address.
+    let vlan_offset = match data.len() {
+        8 => 6,
+        20 => 18,
+        _ => {
+            println!("expected [port, address, vlan], found: {data:x?}");
+            return None;
+        }
+    };
+    Some((
+        get_addr(&data[2..vlan_offset], rev)?,
+        u16::from_le_bytes([data[0], data[1]]),
+        u16::from_le_bytes([data[vlan_offset], data[vlan_offset + 1]]),
+    ))
 }
 
 async fn send(msg: ManagementRequest, cli: &Cli) {
