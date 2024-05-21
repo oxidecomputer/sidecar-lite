@@ -1421,7 +1421,7 @@ checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b1007658f9638dfc60af75286ff5c108d6b2714c"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#227fd15b965bdf5b47724df57eeaf6935587fdd9"
 dependencies = [
  "colored",
  "regex",
@@ -1430,7 +1430,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b1007658f9638dfc60af75286ff5c108d6b2714c"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#227fd15b965bdf5b47724df57eeaf6935587fdd9"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1443,7 +1443,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b1007658f9638dfc60af75286ff5c108d6b2714c"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#227fd15b965bdf5b47724df57eeaf6935587fdd9"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1456,7 +1456,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#16b9d09f673f670778439fc9b6a36f1e5e019715"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#227fd15b965bdf5b47724df57eeaf6935587fdd9"
 dependencies = [
  "bitvec",
  "num",
@@ -2493,7 +2493,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b1007658f9638dfc60af75286ff5c108d6b2714c"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#227fd15b965bdf5b47724df57eeaf6935587fdd9"
 dependencies = [
  "anyhow",
  "bitvec",
