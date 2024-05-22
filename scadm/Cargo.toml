@@ -19,3 +19,6 @@ macaddr.workspace = true
 [dependencies.softnpu]
 git = "https://github.com/oxidecomputer/softnpu"
 branch = "main"
+[dependencies.softnpu-client]
+git = "https://github.com/oxidecomputer/softnpu"
+branch = "main"
