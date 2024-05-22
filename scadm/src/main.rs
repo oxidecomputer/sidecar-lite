@@ -10,11 +10,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use clap::{Parser, Subcommand, ValueEnum};
 use macaddr::MacAddr6;
-use softnpu::mgmt::{
-    dump_tables_propolis, ManagementRequest, ManagementResponse, TableAdd,
-    TableRemove,
-};
-use softnpu::p9::load_program;
+use softnpu::{ManagementRequest, ManagementResponse, TableAdd, TableRemove};
+use softnpu_client::{dump_tables_propolis, p9::load_program};
 use tokio::net::UnixDatagram;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]

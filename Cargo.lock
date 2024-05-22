@@ -1025,7 +1025,7 @@ dependencies = [
 [[package]]
 name = "ispf"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/ispf#7f571c6cc437474183aa1a0f808821ee6ed7a948"
+source = "git+https://github.com/oxidecomputer/ispf#f78443a98397f7818b1e7a487dbb7d5cad625496"
 dependencies = [
  "serde",
 ]
@@ -1035,6 +1035,15 @@ name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
 dependencies = [
  "either",
 ]
@@ -1103,7 +1112,7 @@ dependencies = [
 [[package]]
 name = "libnet"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#59e69ef8fb17be233e336cf4943e31ae398aa4d1"
+source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#4ceaf96e02acb8258ea4aa403326c08932324835"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1447,24 +1456,18 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b1007658f9638dfc60af75286ff5c108d6b2714c"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#16b9d09f673f670778439fc9b6a36f1e5e019715"
 dependencies = [
  "bitvec",
- "colored",
  "num",
  "serde",
- "serde_json",
- "slog",
- "slog-async",
- "slog-envlogger",
- "slog-term",
  "usdt 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "p9ds"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p9fs?branch=main#7251cbb06fedb4117cae61f853cd4bfc95774f93"
+source = "git+https://github.com/oxidecomputer/p9fs?branch=main#4b8362b894e8ecbb6da34e2e71d7a248918ecd8f"
 dependencies = [
  "ispf",
  "num_enum",
@@ -1476,7 +1479,7 @@ dependencies = [
 [[package]]
 name = "p9kp"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p9fs?branch=main#7251cbb06fedb4117cae61f853cd4bfc95774f93"
+source = "git+https://github.com/oxidecomputer/p9fs?branch=main#4b8362b894e8ecbb6da34e2e71d7a248918ecd8f"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -2011,6 +2014,7 @@ dependencies = [
  "serde",
  "serde_json",
  "softnpu",
+ "softnpu-client",
  "tokio",
 ]
 
@@ -2348,8 +2352,19 @@ dependencies = [
 
 [[package]]
 name = "softnpu"
+version = "0.2.0"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#b016b192ed6bb7e2ebee024f48263f627bade5a4"
+dependencies = [
+ "p4rs",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#dbab082dfa89da5db5ca2325c257089d2f130092"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#b016b192ed6bb7e2ebee024f48263f627bade5a4"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -2362,7 +2377,6 @@ dependencies = [
  "libloading",
  "libnet",
  "octocrab",
- "p4rs",
  "p9ds",
  "p9kp",
  "serde",
@@ -2372,6 +2386,7 @@ dependencies = [
  "slog-async",
  "slog-envlogger",
  "slog-term",
+ "softnpu",
  "tokio",
  "toml",
  "zone 0.2.0",
@@ -3291,7 +3306,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0545a42fbd7a81245726d54a0146cb4fd93882ebb6da50d60acf2e37394f198"
 dependencies = [
- "itertools",
+ "itertools 0.10.5",
  "thiserror",
  "zone_cfg_derive 0.2.0",
 ]
@@ -3299,9 +3314,9 @@ dependencies = [
 [[package]]
 name = "zone"
 version = "0.3.0"
-source = "git+https://github.com/oxidecomputer/zone#5503b472dd87a3e6443624e1b42844882d6f769c"
+source = "git+https://github.com/oxidecomputer/zone#65647e678fec739d4e9a6897bf2ee48e1fb051a5"
 dependencies = [
- "itertools",
+ "itertools 0.12.1",
  "thiserror",
  "zone_cfg_derive 0.3.0",
 ]
@@ -3322,7 +3337,7 @@ dependencies = [
 [[package]]
 name = "zone_cfg_derive"
 version = "0.3.0"
-source = "git+https://github.com/oxidecomputer/zone#5503b472dd87a3e6443624e1b42844882d6f769c"
+source = "git+https://github.com/oxidecomputer/zone#65647e678fec739d4e9a6897bf2ee48e1fb051a5"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -3334,14 +3349,10 @@ dependencies = [
 [[package]]
 name = "ztest"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/falcon#7910ec7d1f283c4a9c3c5f42b25ec03a0a8ab87e"
+source = "git+https://github.com/oxidecomputer/falcon#2bfc01d657ef2fe465cf34121d4a439aaf44be3f"
 dependencies = [
  "anyhow",
  "libnet",
- "slog",
- "slog-async",
- "slog-envlogger",
- "slog-term",
  "tokio",
  "zone 0.3.0",
 ]
