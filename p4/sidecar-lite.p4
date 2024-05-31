@@ -12,8 +12,8 @@ SoftNPU(
 
 struct headers_t {
     ethernet_h ethernet;
-    vlan_h vlan;
     sidecar_h sidecar;
+    vlan_h vlan;
     arp_h arp;
     ipv4_h ipv4;
     ipv6_h ipv6;
@@ -286,10 +286,13 @@ control nat_ingress(
         bit<16> orig_l3_len = 0;
         bit<16> orig_l3_csum = 0;
 
-        // move L2 to inner L2
         hdr.inner_eth = hdr.ethernet;
         hdr.inner_eth.dst = mac;
         hdr.inner_eth.setValid();
+        if (hdr.vlan.isValid()) {
+            hdr.inner_eth.ether_type = hdr.vlan.ether_type;
+            hdr.vlan.setInvalid();
+        }
 
         // fix up outer L2
         hdr.ethernet.ether_type = 16w0x86dd;
