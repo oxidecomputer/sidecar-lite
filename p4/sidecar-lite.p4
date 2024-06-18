@@ -63,6 +63,9 @@ parser parse(
         if (hdr.ethernet.ether_type == 16w0x0800) {
             transition ipv4;
         }
+        if (hdr.ethernet.ether_type == 16w0x88cc) {
+            transition lldp;
+        }
         if (hdr.ethernet.ether_type == 16w0x86dd) {
             transition ipv6;
         }
@@ -83,6 +86,9 @@ parser parse(
         if (hdr.sidecar.sc_ether_type == 16w0x86dd) {
             transition ipv6;
         }
+        if (hdr.sidecar.sc_ether_type == 16w0x88cc) {
+            transition lldp;
+        }
         if (hdr.sidecar.sc_ether_type == 16w0x0800) {
             transition ipv4;
         }
@@ -93,6 +99,11 @@ parser parse(
             transition vlan;
         }
         transition reject;
+    }
+
+    state lldp {
+	    ingress.lldp = true;
+	    transition accept;
     }
 
     state vlan {
@@ -418,6 +429,7 @@ control nat_ingress(
 }
 
 control local(
+    inout ingress_metadata_t ingress,
     inout headers_t hdr,
     out bool is_local,
 ) {
@@ -465,7 +477,10 @@ control local(
         }
         if(hdr.arp.isValid()) {
             is_local = true;
-        }
+	}
+	if(ingress.lldp) {
+            is_local = true;
+	}
     }
 }
 
@@ -767,7 +782,7 @@ control ingress(
         //
 
         bool local_dst = false;
-        local.apply(hdr, local_dst);
+        local.apply(ingress, hdr, local_dst);
 
         if (local_dst) {
 
