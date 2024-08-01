@@ -575,6 +575,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
+
+[[package]]
 name = "either"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1031,6 +1037,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ipnetwork"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf466541e9d546596ee94f9f69590f89473455f88372423e0008fc1a7daf100e"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "is-terminal"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1137,7 +1152,7 @@ dependencies = [
 [[package]]
 name = "libnet"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#4ceaf96e02acb8258ea4aa403326c08932324835"
+source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#b76542f77c566690cda628b1f86bfb2021a1a066"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1147,6 +1162,7 @@ dependencies = [
  "num_enum",
  "nvpair",
  "nvpair-sys",
+ "oxnet",
  "rusty-doors",
  "socket2 0.4.10",
  "thiserror",
@@ -1454,9 +1470,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
 
 [[package]]
+name = "oxnet"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/oxnet#7dacd265f1bcd0f8b47bd4805250c4f0812da206"
+dependencies = [
+ "ipnetwork 0.20.0",
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#521fe3d4b5abfa95cc8fbd9f2f461bf6ae711d87"
 dependencies = [
  "colored",
  "regex",
@@ -1465,7 +1491,6 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#521fe3d4b5abfa95cc8fbd9f2f461bf6ae711d87"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1478,7 +1503,6 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#521fe3d4b5abfa95cc8fbd9f2f461bf6ae711d87"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1486,6 +1510,16 @@ dependencies = [
  "quote",
  "syn 1.0.109",
  "tempfile",
+]
+
+[[package]]
+name = "p4rs"
+version = "0.1.0"
+dependencies = [
+ "bitvec",
+ "num",
+ "serde",
+ "usdt 0.3.5",
 ]
 
 [[package]]
@@ -1686,7 +1720,7 @@ version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e466faf03a98ad27f6e15cd27a2b7cc89e73e640a43527742977bc503c37f8aa"
 dependencies = [
- "ipnetwork",
+ "ipnetwork 0.19.0",
  "libc",
  "pnet_base",
  "pnet_sys",
@@ -2026,7 +2060,7 @@ checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
 [[package]]
 name = "rusty-doors"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/rusty-doors#42ad0104095425eea76934b5d735b4c6a438ef66"
+source = "git+https://github.com/oxidecomputer/rusty-doors#0e3a1495dcf8b7b5e11a6921c2cf1cf957c5a5bf"
 dependencies = [
  "libc",
  "rusty-doors-macros",
@@ -2035,7 +2069,7 @@ dependencies = [
 [[package]]
 name = "rusty-doors-macros"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/rusty-doors#42ad0104095425eea76934b5d735b4c6a438ef66"
+source = "git+https://github.com/oxidecomputer/rusty-doors#0e3a1495dcf8b7b5e11a6921c2cf1cf957c5a5bf"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -2058,7 +2092,7 @@ dependencies = [
  "libc",
  "macaddr",
  "num",
- "p4rs",
+ "p4rs 0.1.0",
  "serde",
  "serde_json",
  "softnpu",
@@ -2073,6 +2107,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fbc91545643bcf3a0bbb6569265615222618bdf33ce4ffbbd13c4bbd4c093534"
 dependencies = [
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "schemars"
+version = "0.8.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09c024468a378b7e36765cd36702b7a90cc3cba11654f6685c8f233408e89e92"
+dependencies = [
+ "dyn-clone",
+ "schemars_derive",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "0.8.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1eee588578aff73f856ab961cd2f79e36bc45d7ded33a7562adba4667aecc0e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn 2.0.66",
 ]
 
 [[package]]
@@ -2164,12 +2222,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_json"
-version = "1.0.117"
+name = "serde_derive_internals"
+version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "455182ea6142b14f93f4bc5320a2b31c1f266b66a4a5c858b013302a5d8cbfc3"
+checksum = "18d26a20a969b9e3fdf2fc2d9f21eda6c40e2de84c9408bb5d3b05d499aae711"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.66",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.122"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "784b6203951c57ff748476b126ccb5e8e2959a5c19e5c617ab1956be3dbc68da"
 dependencies = [
  "itoa",
+ "memchr",
  "ryu",
  "serde",
 ]
@@ -2263,7 +2333,7 @@ dependencies = [
  "colored",
  "num",
  "p4-macro",
- "p4rs",
+ "p4rs 0.1.0",
  "pnet",
  "pnet_macros",
  "pnet_macros_support",
@@ -2423,7 +2493,7 @@ name = "softnpu"
 version = "0.2.0"
 source = "git+https://github.com/oxidecomputer/softnpu?branch=main#b016b192ed6bb7e2ebee024f48263f627bade5a4"
 dependencies = [
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
  "serde",
  "serde_json",
  "tokio",
@@ -2566,14 +2636,13 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#521fe3d4b5abfa95cc8fbd9f2f461bf6ae711d87"
 dependencies = [
  "anyhow",
  "bitvec",
  "colored",
  "num",
  "p4-macro",
- "p4rs",
+ "p4rs 0.1.0",
  "pnet",
  "rand",
  "usdt 0.3.5",
@@ -3433,7 +3502,7 @@ dependencies = [
 [[package]]
 name = "ztest"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/falcon#e665229882ff55977436d8ef7e329b0fbf0e76bd"
+source = "git+https://github.com/oxidecomputer/falcon#afd1ed425be64846d205d6051455f38032bd4d29"
 dependencies = [
  "anyhow",
  "libnet",

@@ -122,3 +122,46 @@ header ddm_element_t {
     bit<8> id;
     bit<24> timestamp;
 }
+
+struct headers_t {
+    ethernet_h ethernet;
+    sidecar_h sidecar;
+    vlan_h vlan;
+    arp_h arp;
+    ipv4_h ipv4;
+    ipv6_h ipv6;
+
+    ddm_h ddm;
+    // The ddm original p4 code used a header stack, but Intel says this is not
+    // efficient on Tofino, and x4c does not currently support header stacks. So
+    // the following is an unrolled version. This is not easy on the eyes.
+    ddm_element_t ddm0;
+    ddm_element_t ddm1;
+    ddm_element_t ddm2;
+    ddm_element_t ddm3;
+    ddm_element_t ddm4;
+    ddm_element_t ddm5;
+    ddm_element_t ddm6;
+    ddm_element_t ddm7;
+    ddm_element_t ddm8;
+    ddm_element_t ddm9;
+    ddm_element_t ddm10;
+    ddm_element_t ddm11;
+    ddm_element_t ddm12;
+    ddm_element_t ddm13;
+    ddm_element_t ddm14;
+    ddm_element_t ddm15;
+
+    icmp_h icmp;
+    tcp_h tcp;
+    udp_h udp;
+
+    geneve_h geneve;
+    geneve_opt_h    ox_external_tag;
+    ethernet_h inner_eth;
+    ipv4_h inner_ipv4;
+    ipv6_h inner_ipv6;
+    icmp_h inner_icmp;
+    tcp_h inner_tcp;
+    udp_h inner_udp;
+}
