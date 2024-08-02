@@ -1483,6 +1483,7 @@ dependencies = [
 [[package]]
 name = "p4"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/p4?branch=rydev#730ed7b02570426f15e331bb7143ff85fe7fe080"
 dependencies = [
  "colored",
  "regex",
@@ -1491,6 +1492,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/p4?branch=rydev#730ed7b02570426f15e331bb7143ff85fe7fe080"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1503,6 +1505,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/p4?branch=rydev#730ed7b02570426f15e331bb7143ff85fe7fe080"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1515,6 +1518,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#521fe3d4b5abfa95cc8fbd9f2f461bf6ae711d87"
 dependencies = [
  "bitvec",
  "num",
@@ -1525,7 +1529,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#521fe3d4b5abfa95cc8fbd9f2f461bf6ae711d87"
+source = "git+https://github.com/oxidecomputer/p4?branch=rydev#730ed7b02570426f15e331bb7143ff85fe7fe080"
 dependencies = [
  "bitvec",
  "num",
@@ -2092,7 +2096,7 @@ dependencies = [
  "libc",
  "macaddr",
  "num",
- "p4rs 0.1.0",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=rydev)",
  "serde",
  "serde_json",
  "softnpu",
@@ -2333,7 +2337,7 @@ dependencies = [
  "colored",
  "num",
  "p4-macro",
- "p4rs 0.1.0",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=rydev)",
  "pnet",
  "pnet_macros",
  "pnet_macros_support",
@@ -2636,13 +2640,14 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/p4?branch=rydev#730ed7b02570426f15e331bb7143ff85fe7fe080"
 dependencies = [
  "anyhow",
  "bitvec",
  "colored",
  "num",
  "p4-macro",
- "p4rs 0.1.0",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=rydev)",
  "pnet",
  "rand",
  "usdt 0.3.5",
