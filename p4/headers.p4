@@ -1,4 +1,4 @@
-// Copyright 2022 Oxide Computer Company
+// Copyright 2024 Oxide Computer Company
 
 header sidecar_h {
     bit<8> sc_code;

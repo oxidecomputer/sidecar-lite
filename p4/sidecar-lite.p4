@@ -1,4 +1,4 @@
-// Copyright 2022 Oxide Computer Company
+// Copyright 2024 Oxide Computer Company
 
 #include <core.p4>
 #include <softnpu.p4>
@@ -16,37 +16,23 @@ control ingress(
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
-    local() local;
-    router() router;
-    nat_ingress() nat;
-    resolver() resolver;
-    mac_rewrite() mac;
-    proxy_arp() pxarp;
+    local()         local;
+    router()        router;
+    nat_ingress()   nat;
+    resolver()      resolver;
+    mac_rewrite()   mac;
+    proxy_arp()     pxarp;
 
     apply {
-
         //
-        // Check if this is a packet coming from the scrimlet.
+        // Check if this is a packet coming from the scrimlet. If so just
+        // forward it out the source port indicated by the sidecar header.
         //
+        if (hdr.sidecar.isValid()) { fwd_from_scrimlet(); return; }
 
-        if (hdr.sidecar.isValid()) {
-
-            //  Direct packets to the sidecar port corresponding to the scrimlet
-            //  port they came from.
-            egress.port = hdr.sidecar.sc_egress;
-
-            // Decap the sidecar header.
-            hdr.ethernet.ether_type = hdr.sidecar.sc_ether_type;
-            hdr.sidecar.setInvalid();
-
-            // No more processing is required for sidecar packets, they simply
-            // go out the sidecar port corresponding to the source scrimlet
-            // port. No sort of hairpin back to the scrimlet is supported.
-            // Similarly sending packets from one scrimlet port out a different
-            // sidecar port is also not supported.
-            return;
-        }
-
+        ///
+        /// Check if we need to proxy arp this packet.
+        ///
         if (hdr.arp.isValid()) {
             bool proxied = false;
             pxarp.apply(hdr, ingress, egress, proxied);
@@ -57,96 +43,87 @@ control ingress(
         // If the packet has a local destination, create the sidecar header and
         // send it to the scrimlet.
         //
-
         bool local_dst = false;
         local.apply(ingress, hdr, local_dst);
-
         if (local_dst) {
-
-            // check if this packet is destined to boundary services sourced
-            // from within the rack.
-            if (hdr.geneve.isValid()) {
-
-                // strip the geneve header and try to route
-                hdr.geneve.setInvalid();
-                hdr.ethernet = hdr.inner_eth;
-                hdr.inner_eth.setInvalid();
-                if (hdr.inner_ipv4.isValid()) {
-                    hdr.ipv4 = hdr.inner_ipv4;
-                    hdr.ipv4.setValid();
-                    hdr.ipv6.setInvalid();
-                    hdr.inner_ipv4.setInvalid();
-                }
-                if (hdr.inner_ipv6.isValid()) {
-                    hdr.ipv6 = hdr.inner_ipv6;
-                    hdr.ipv6.setValid();
-                    hdr.ipv4.setInvalid();
-                    hdr.inner_ipv6.setInvalid();
-                }
-                if (hdr.inner_tcp.isValid()) {
-                    hdr.tcp = hdr.inner_tcp;
-                    hdr.udp.setInvalid();
-                    hdr.tcp.setValid();
-                    hdr.inner_tcp.setInvalid();
-                }
-                if (hdr.inner_udp.isValid()) {
-                    hdr.udp = hdr.inner_udp;
-                    hdr.udp.setValid();
-                    hdr.inner_udp.setInvalid();
-                }
-                if (hdr.inner_icmp.isValid()) {
-                    hdr.icmp = hdr.inner_icmp;
-                    hdr.udp.setInvalid();
-                    hdr.icmp.setValid();
-                    hdr.inner_icmp.setInvalid();
-                }
-                router.apply(hdr, ingress, egress);
-                if (egress.drop == false) {
-                    resolver.apply(hdr, egress);
-                }
-            }
-
-            // check if this packet is destined to boundary services from
-            // outside the rack.
-
-            else {
-                hdr.sidecar.setValid();
-                hdr.sidecar.sc_ether_type = hdr.ethernet.ether_type;
-                hdr.ethernet.ether_type = 16w0x0901;
-
-                //SC_FORWARD_TO_USERSPACE
-                hdr.sidecar.sc_code = 8w0x01;
-                hdr.sidecar.sc_ingress = ingress.port;
-                hdr.sidecar.sc_egress = ingress.port;
-                hdr.sidecar.sc_payload = 128w0x1701d;
-
-                // scrimlet port
-                // TODO simply stating 0 here causes bad conversion, initializes
-                // egress.port as a 128 bit value due to
-                // StatementGenerator::converter using int_to_bitvec
-                egress.port = 16w0;
-            }
-            return;
+            // If this is boundary services packet, it should have a geneve
+            // header. Decap and attempt to route.
+            if (hdr.geneve.isValid()) { decap_geneve(); }
+            // If there is no geneve header this is a packet from outside the
+            // rack and should be sent to the scrimlet.
+            else { fwd_to_scrimlet(); return; }
+        } else {
+            nat.apply(hdr, ingress, egress); // check for ingress nat
         }
 
         //
-        // Otherwise route the packet using the L3 routing table.
+        // After local and NAT processing, basic packet forwarding happens.
         //
+        router.apply(hdr, ingress, egress); // router table lookups
+        resolver.apply(hdr, egress);        // resolve the nexthop
+        mac.apply(hdr, egress);             // source mac rewrite
 
-        else {
-            // check for ingress nat
-            nat.apply(hdr, ingress, egress);
-            router.apply(hdr, ingress, egress);
-            resolver.apply(hdr, egress);
-        }
-
-        //
-        // Rewrite the mac on the way out the door.
-        //
-
-        mac.apply(hdr, egress);
-
+        // Prevent reflection.
         if (ingress.port == egress.port) { egress.drop = true; }
+    }
+
+    action decap_geneve() {
+        hdr.geneve.setInvalid();
+        hdr.ethernet = hdr.inner_eth;
+        hdr.inner_eth.setInvalid();
+        if (hdr.inner_ipv4.isValid()) {
+            hdr.ipv4 = hdr.inner_ipv4;
+            hdr.ipv4.setValid();
+            hdr.ipv6.setInvalid();
+            hdr.inner_ipv4.setInvalid();
+        }
+        if (hdr.inner_ipv6.isValid()) {
+            hdr.ipv6 = hdr.inner_ipv6;
+            hdr.ipv6.setValid();
+            hdr.ipv4.setInvalid();
+            hdr.inner_ipv6.setInvalid();
+        }
+        if (hdr.inner_tcp.isValid()) {
+            hdr.tcp = hdr.inner_tcp;
+            hdr.udp.setInvalid();
+            hdr.tcp.setValid();
+            hdr.inner_tcp.setInvalid();
+        }
+        if (hdr.inner_udp.isValid()) {
+            hdr.udp = hdr.inner_udp;
+            hdr.udp.setValid();
+            hdr.inner_udp.setInvalid();
+        }
+        if (hdr.inner_icmp.isValid()) {
+            hdr.icmp = hdr.inner_icmp;
+            hdr.udp.setInvalid();
+            hdr.icmp.setValid();
+            hdr.inner_icmp.setInvalid();
+        }
+    }
+
+    action fwd_to_scrimlet() {
+        hdr.sidecar.setValid();
+        hdr.sidecar.sc_ether_type = hdr.ethernet.ether_type;
+        hdr.ethernet.ether_type = 16w0x0901;
+        hdr.sidecar.sc_code = 8w0x01; //SC_FORWARD_TO_USERSPACE
+        hdr.sidecar.sc_ingress = ingress.port;
+        hdr.sidecar.sc_egress = ingress.port;
+        hdr.sidecar.sc_payload = 128w0x1701d;
+
+        // TODO simply stating 0 here causes bad conversion, initializes
+        // egress.port as a 128 bit value due to
+        // StatementGenerator::converter using int_to_bitvec
+        egress.port = 16w0; // scrimlet port
+    }
+
+    action fwd_from_scrimlet() {
+        //  Direct packets to the sidecar port corresponding to the scrimlet
+        //  port they came from.
+        egress.port = hdr.sidecar.sc_egress;
+        // Decap the sidecar header.
+        hdr.ethernet.ether_type = hdr.sidecar.sc_ether_type;
+        hdr.sidecar.setInvalid();
     }
 }
 
@@ -155,11 +132,32 @@ control nat_ingress(
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
-
     Checksum() csum;
 
-    action forward_to_sled(bit<128> target, bit<24> vni, bit<48> mac) {
+    table nat_v4 {
+        key = {
+            hdr.ipv4.dst:   exact;
+            ingress.nat_id: range;
+        }
+        actions = { forward_to_sled; }
+        default_action = NoAction;
+    }
 
+    table nat_v6 {
+        key = {
+            hdr.ipv6.dst:   exact;
+            ingress.nat_id: range;
+        }
+        actions = { forward_to_sled; }
+        default_action = NoAction;
+    }
+
+    apply {
+        if (hdr.ipv4.isValid()) { nat_v4.apply(); }
+        if (hdr.ipv6.isValid()) { nat_v6.apply(); }
+    }
+
+    action forward_to_sled(bit<128> target, bit<24> vni, bit<48> mac) {
         ingress.nat = true;
 
         bit<16> orig_l3_len = 0;
@@ -222,7 +220,7 @@ control nat_ingress(
         hdr.udp.src_port = 16w6081;
         hdr.udp.dst_port = 16w6081;
         hdr.udp.len = hdr.ipv6.payload_len;
-        hdr.udp.checksum = 16w0; //TODO
+        hdr.udp.checksum = 16w0;
         hdr.udp.setValid();
 
         // set up geneve
@@ -232,9 +230,7 @@ control nat_ingress(
         hdr.geneve.crit = 1w0;
         hdr.geneve.reserved = 6w0;
         hdr.geneve.protocol = 16w0x6558;
-
         hdr.geneve.vni = vni;
-
         hdr.geneve.reserved2 = 8w0;
         hdr.geneve.setValid();
 
@@ -264,30 +260,6 @@ control nat_ingress(
             orig_l3_csum,
         });
         hdr.udp.checksum = 16w0;
-
-    }
-
-    table nat_v4 {
-        key = {
-            hdr.ipv4.dst:   exact;
-            ingress.nat_id: range;
-        }
-        actions = { forward_to_sled; }
-        default_action = NoAction;
-    }
-
-    table nat_v6 {
-        key = {
-            hdr.ipv6.dst:   exact;
-            ingress.nat_id: range;
-        }
-        actions = { forward_to_sled; }
-        default_action = NoAction;
-    }
-
-    apply {
-        if (hdr.ipv4.isValid()) { nat_v4.apply(); }
-        if (hdr.ipv6.isValid()) { nat_v6.apply(); }
     }
 
 }
@@ -297,10 +269,6 @@ control local(
     inout headers_t hdr,
     out bool is_local,
 ) {
-
-    action nonlocal() { is_local = false; }
-    action local()    { is_local = true; }
-
     table local_v6 {
         key = { hdr.ipv6.dst: exact; }
         actions = { local; nonlocal; }
@@ -316,24 +284,21 @@ control local(
     apply {
         if(hdr.ipv6.isValid()) {
             local_v6.apply();
-            bit<16> ll = 16w0xff02;
-            if(hdr.ipv6.dst[127:112] == ll) {
-                is_local = true;
-            }
+            if(hdr.ipv6.dst[127:112] == 16w0xff02) { is_local = true; }
         }
         if(hdr.ipv4.isValid()) { local_v4.apply(); }
         if(hdr.arp.isValid())  { is_local = true; }
         if(ingress.lldp)       { is_local = true; }
     }
+
+    action nonlocal() { is_local = false; }
+    action local()    { is_local = true; }
 }
 
 control resolver(
     inout headers_t hdr,
     inout egress_metadata_t egress,
 ) {
-    action rewrite_dst(bit<48> dst) { hdr.ethernet.dst = dst; }
-    action drop() { egress.drop = true; }
-
     table resolver_v4 {
         key = { egress.nexthop_v4: exact; }
         actions = { rewrite_dst; drop; }
@@ -350,12 +315,24 @@ control resolver(
         if (hdr.ipv4.isValid()) { resolver_v4.apply(); }
         if (hdr.ipv6.isValid()) { resolver_v6.apply(); }
     }
+
+    action rewrite_dst(bit<48> dst) { hdr.ethernet.dst = dst; }
+    action drop()                   { egress.drop = true; }
 }
 
 control router_v4_route(
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
+    table rtr {
+        key = { ingress.path_idx: exact; }
+        actions = { forward; forward_vlan; }
+        // should never happen, but the compiler requires a default
+        default_action = drop;
+    }
+
+    apply { rtr.apply(); }
+
     action drop() { egress.drop = true; }
 
     action forward(bit<16> port, bit<32> nexthop) {
@@ -371,15 +348,6 @@ control router_v4_route(
         egress.nexthop_v4 = nexthop;
         egress.drop = false;
     }
-
-    table rtr {
-        key = { ingress.path_idx: exact; }
-        actions = { forward; forward_vlan; }
-        // should never happen, but the compiler requires a default
-        default_action = drop;
-    }
-
-    apply { rtr.apply(); }
 }
 
 control router_v4_idx(
@@ -390,6 +358,14 @@ control router_v4_idx(
 ) {
     Checksum() csum;
 
+    table rtr {
+        key = { dst_addr: lpm; }
+        actions = { drop; index; }
+        default_action = drop;
+    }
+
+    apply { rtr.apply(); }
+
     action drop() { egress.drop = true; }
 
     action index(bit<16> idx, bit<8> slots) {
@@ -398,14 +374,6 @@ control router_v4_idx(
         bit<16> offset = hash % extended_slots;
         ingress.path_idx = idx + offset;
     }
-
-    table rtr {
-        key = { dst_addr: lpm; }
-        actions = { drop; index; }
-        default_action = drop;
-    }
-
-    apply { rtr.apply(); }
 }
 
 control router_v6(
@@ -413,6 +381,13 @@ control router_v6(
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
+    table rtr {
+        key = { dst: lpm; }
+        actions = { drop; forward; forward_vlan; }
+        default_action = drop;
+    }
+
+    apply { rtr.apply(); }
 
     action drop() { egress.drop = true; }
 
@@ -429,15 +404,6 @@ control router_v6(
         egress.nexthop_v6 = nexthop;
         egress.drop = false;
     }
-
-    table rtr {
-        key = { dst: lpm; }
-        actions = { drop; forward; forward_vlan; }
-        default_action = drop;
-    }
-
-    apply { rtr.apply(); }
-
 }
 
 control router(
@@ -477,8 +443,6 @@ control mac_rewrite(
     inout headers_t hdr,
     inout egress_metadata_t egress,
 ) {
-    action rewrite(bit<48> mac) { hdr.ethernet.src = mac; }
-
     table mac_rewrite {
         key = { egress.port: exact; }
         actions = { rewrite; }
@@ -487,6 +451,7 @@ control mac_rewrite(
 
     apply { mac_rewrite.apply(); }
 
+    action rewrite(bit<48> mac) { hdr.ethernet.src = mac; }
 }
 
 control proxy_arp(
@@ -495,25 +460,6 @@ control proxy_arp(
     inout egress_metadata_t egress,
     out bool is_proxied,
 ) {
-    action proxy_arp_reply(bit<48> mac) {
-        egress.port = ingress.port;
-        hdr.ethernet.dst = hdr.ethernet.src;
-        hdr.ethernet.src = mac;
-        hdr.arp.target_mac = hdr.arp.sender_mac;
-        hdr.arp.sender_mac = mac;
-        hdr.arp.opcode = 16w2;
-
-        //TODO compiler broken for this, should be able to do this in one line.
-        bit<32> tmp = 0;
-        tmp = hdr.arp.sender_ip;
-        /// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-        hdr.arp.sender_ip = hdr.arp.target_ip;
-        hdr.arp.target_ip = tmp;
-
-        is_proxied = true;
-    }
-
     table proxy_arp {
         key = { hdr.arp.target_ip: range; }
         actions = { proxy_arp_reply; }
@@ -521,6 +467,20 @@ control proxy_arp(
     }
 
     apply { proxy_arp.apply(); }
+
+    action proxy_arp_reply(bit<48> mac) {
+        egress.port = ingress.port;
+        hdr.ethernet.dst = hdr.ethernet.src;
+        hdr.ethernet.src = mac;
+        hdr.arp.target_mac = hdr.arp.sender_mac;
+        hdr.arp.sender_mac = mac;
+        hdr.arp.opcode = 16w2;
+        bit<32> tmp = hdr.arp.sender_ip;
+        hdr.arp.sender_ip = hdr.arp.target_ip;
+        hdr.arp.target_ip = tmp;
+
+        is_proxied = true;
+    }
 }
 
 
