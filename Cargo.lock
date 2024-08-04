@@ -1483,7 +1483,7 @@ dependencies = [
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=rydev#730ed7b02570426f15e331bb7143ff85fe7fe080"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#906a601bbea198bcbedf8b1dd5942d836bc3696d"
 dependencies = [
  "colored",
  "regex",
@@ -1492,7 +1492,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=rydev#730ed7b02570426f15e331bb7143ff85fe7fe080"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#906a601bbea198bcbedf8b1dd5942d836bc3696d"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1505,7 +1505,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=rydev#730ed7b02570426f15e331bb7143ff85fe7fe080"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#906a601bbea198bcbedf8b1dd5942d836bc3696d"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1518,18 +1518,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#521fe3d4b5abfa95cc8fbd9f2f461bf6ae711d87"
-dependencies = [
- "bitvec",
- "num",
- "serde",
- "usdt 0.3.5",
-]
-
-[[package]]
-name = "p4rs"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=rydev#730ed7b02570426f15e331bb7143ff85fe7fe080"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#906a601bbea198bcbedf8b1dd5942d836bc3696d"
 dependencies = [
  "bitvec",
  "num",
@@ -2096,7 +2085,7 @@ dependencies = [
  "libc",
  "macaddr",
  "num",
- "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=rydev)",
+ "p4rs",
  "serde",
  "serde_json",
  "softnpu",
@@ -2337,7 +2326,7 @@ dependencies = [
  "colored",
  "num",
  "p4-macro",
- "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=rydev)",
+ "p4rs",
  "pnet",
  "pnet_macros",
  "pnet_macros_support",
@@ -2497,7 +2486,7 @@ name = "softnpu"
 version = "0.2.0"
 source = "git+https://github.com/oxidecomputer/softnpu?branch=main#b016b192ed6bb7e2ebee024f48263f627bade5a4"
 dependencies = [
- "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
+ "p4rs",
  "serde",
  "serde_json",
  "tokio",
@@ -2640,14 +2629,14 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=rydev#730ed7b02570426f15e331bb7143ff85fe7fe080"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#906a601bbea198bcbedf8b1dd5942d836bc3696d"
 dependencies = [
  "anyhow",
  "bitvec",
  "colored",
  "num",
  "p4-macro",
- "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=rydev)",
+ "p4rs",
  "pnet",
  "rand",
  "usdt 0.3.5",
