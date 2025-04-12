@@ -335,16 +335,6 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 
 [[package]]
 name = "colored"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
-dependencies = [
- "lazy_static",
- "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "colored"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fde0e0ec90c9dfb3b4b1a0891a7dcd0e2bffde2f7efed5fe7c9bb00e5bfb915e"
@@ -1314,7 +1304,7 @@ source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#73362d5a3b
 dependencies = [
  "anyhow",
  "cfg-if",
- "colored 3.0.0",
+ "colored",
  "dlpi 0.2.0 (git+https://github.com/oxidecomputer/dlpi-sys)",
  "libc",
  "num_enum 0.7.3",
@@ -1667,7 +1657,7 @@ name = "p4"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/p4?branch=main#bb8dc6d3798ad6207a704ef4afe35c38fd3b8f7a"
 dependencies = [
- "colored 3.0.0",
+ "colored",
  "regex",
 ]
 
@@ -2478,7 +2468,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bitvec",
- "colored 2.2.0",
+ "colored",
  "num",
  "p4-macro",
  "p4rs",
@@ -2778,7 +2768,7 @@ source = "git+https://github.com/oxidecomputer/p4?branch=main#bb8dc6d3798ad6207a
 dependencies = [
  "anyhow",
  "bitvec",
- "colored 3.0.0",
+ "colored",
  "num",
  "p4-macro",
  "p4rs",
