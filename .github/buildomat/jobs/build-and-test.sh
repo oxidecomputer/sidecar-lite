@@ -62,7 +62,7 @@ rustc --version
 
 banner "check"
 cargo fmt -- --check
-cargo clippy -- --deny warnings
+cargo clippy --all-targets -- --deny warnings
 
 banner "build"
 ptime -m cargo build

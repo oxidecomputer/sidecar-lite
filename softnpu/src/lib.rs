@@ -1,5 +1,7 @@
 // Copyright 2022 Oxide Computer Company
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::redundant_closure_call)]
+#![allow(unexpected_cfgs)]
 
 #[cfg(test)]
 mod test;
