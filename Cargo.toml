@@ -12,17 +12,17 @@ p4-test = { package = "tests", git = "https://github.com/oxidecomputer/p4", bran
 usdt = { git = "https://github.com/oxidecomputer/usdt" }
 
 base64 = { version = "0.13" }
-clap = { version = "4.2.5", features = ["derive", "unstable-styles"] }
-anstyle = "1.0.0"
+clap = { version = "4.5.36", features = ["derive", "unstable-styles"] }
+anstyle = "1.0.10"
 libc = "0.2"
 serde = "1.0"
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
 errno = "0.2"
-num = { version = "0.4.0", features = ["num-bigint"] }
+num = { version = "0.4.3", features = ["num-bigint"] }
 macaddr = { git = "https://github.com/luqmana/rust-macaddr", branch = "leading-zeros", version = "1.0.1" }
 bitvec = "1.0"
-colored = "2.0"
+colored = "2.2"
 anyhow = "1"
 pnet = "0.31"
 pnet_macros = "0.31"
