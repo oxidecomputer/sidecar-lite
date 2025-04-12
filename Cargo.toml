@@ -22,7 +22,7 @@ errno = "0.3"
 num = { version = "0.4.3", features = ["num-bigint"] }
 macaddr = { git = "https://github.com/luqmana/rust-macaddr", branch = "leading-zeros", version = "1.0.1" }
 bitvec = "1.0"
-colored = "2.2"
+colored = "3.0"
 anyhow = "1"
 pnet = "0.35"
 pnet_macros = "0.35"
