@@ -1299,7 +1299,7 @@ dependencies = [
 [[package]]
 name = "libnet"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#73362d5a3b45bebce741f1d50b99abec7632d7ce"
+source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#b133c7d8c5d375e388191db2848881b1a1b8d5f6"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1657,7 +1657,7 @@ checksum = "95f58698da06f0f57b1ea4a8f1b0ca5741ee17927729d2e87dcfcb682266d21d"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b0bcb08c4cff909c465e10e110c60154e8d80114"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#261e2536ba497ba00ca97cbb003fe3448308b658"
 dependencies = [
  "colored",
  "regex",
@@ -1666,7 +1666,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b0bcb08c4cff909c465e10e110c60154e8d80114"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#261e2536ba497ba00ca97cbb003fe3448308b658"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1679,7 +1679,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b0bcb08c4cff909c465e10e110c60154e8d80114"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#261e2536ba497ba00ca97cbb003fe3448308b658"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1692,7 +1692,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b0bcb08c4cff909c465e10e110c60154e8d80114"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#261e2536ba497ba00ca97cbb003fe3448308b658"
 dependencies = [
  "bitvec",
  "num",
@@ -2605,7 +2605,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#faa7373333aa0dc3fddfd42822c9429a4dfaffc6"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#cda2fd8bc43f07835b34539b3a20134c8dba73ab"
 dependencies = [
  "p4rs",
  "serde",
@@ -2616,7 +2616,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#faa7373333aa0dc3fddfd42822c9429a4dfaffc6"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#cda2fd8bc43f07835b34539b3a20134c8dba73ab"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -2756,7 +2756,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b0bcb08c4cff909c465e10e110c60154e8d80114"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#261e2536ba497ba00ca97cbb003fe3448308b658"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -3735,7 +3735,7 @@ dependencies = [
 [[package]]
 name = "ztest"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/falcon#652c201a15c1681667c5f9066ec93edab72ffe17"
+source = "git+https://github.com/oxidecomputer/falcon#ad78ffd222254bf55ee243fb030f1a2a88765e9d"
 dependencies = [
  "anyhow",
  "libnet",
