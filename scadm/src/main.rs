@@ -1158,7 +1158,33 @@ async fn send_uds(msg: ManagementRequest, cli: &Cli) {
     let uds = UnixDatagram::unbound().unwrap();
 
     let buf = serde_json::to_vec(&msg).unwrap();
-    uds.send_to(&buf, &cli.server).await.unwrap();
+    match uds.send_to(&buf, &cli.server).await {
+        Ok(_) => {}
+        Err(e) => {
+            let suggestion = match e.raw_os_error() {
+                Some(libc::EEXIST) => {
+                    "The provided server socket path does not exist. "
+                }
+                Some(libc::ENOTSOCK) => {
+                    "The provided server socket path exists but is not a file. "
+                }
+                Some(libc::EDESTADDRREQ) => {
+                    "The provided server socket path is a file but \
+                    nothing is listening there. Is softnpu running? "
+                }
+                _ => {
+                    // Other errors are fully unexpected. Nothing to offer.
+                    ""
+                }
+            };
+            // Suggestions must end with punctuation and a space, if present.
+            panic!(
+                "Failed to send management request to {}. \
+                {}sendto failed with {:?}",
+                cli.server, suggestion, e
+            );
+        }
+    }
 }
 
 fn bind_uds(cli: &Cli) -> UnixDatagram {
