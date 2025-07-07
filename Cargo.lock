@@ -216,9 +216,9 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "cc"
-version = "1.2.27"
+version = "1.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d487aa071b5f64da6f19a3e848e3578944b726ee5a4854b82172f02aa876bfdc"
+checksum = "5c1599538de2394445747c8cf7935946e3cc27e9625f889d979bfb2aaf569362"
 dependencies = [
  "shlex",
 ]
@@ -340,15 +340,15 @@ dependencies = [
 
 [[package]]
 name = "console"
-version = "0.15.11"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "054ccb5b10f9f2cbf51eb355ca1d05c2d279ce1804688d0db74b4733a5aeafd8"
+checksum = "2e09ced7ebbccb63b4c65413d821f2e00ce54c5ca4514ddc6b3c892fdbcbc69d"
 dependencies = [
  "encode_unicode",
  "libc",
  "once_cell",
  "unicode-width",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -422,7 +422,7 @@ dependencies = [
  "openssl-probe",
  "openssl-sys",
  "schannel",
- "socket2",
+ "socket2 0.5.10",
  "windows-sys 0.59.0",
 ]
 
@@ -511,7 +511,7 @@ dependencies = [
 [[package]]
 name = "dlpi"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#e0b59b089ed2e9041ce0930784650485f33846df"
+source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#bc75c49c365534f4764dec5853a75c7c9f4567c1"
 dependencies = [
  "libc",
  "libdlpi-sys 0.1.0 (git+https://github.com/oxidecomputer/dlpi-sys?branch=main)",
@@ -524,7 +524,7 @@ dependencies = [
 [[package]]
 name = "dlpi"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys#e0b59b089ed2e9041ce0930784650485f33846df"
+source = "git+https://github.com/oxidecomputer/dlpi-sys#bc75c49c365534f4764dec5853a75c7c9f4567c1"
 dependencies = [
  "libc",
  "libdlpi-sys 0.1.0 (git+https://github.com/oxidecomputer/dlpi-sys)",
@@ -971,7 +971,7 @@ dependencies = [
  "hyper",
  "libc",
  "pin-project-lite",
- "socket2",
+ "socket2 0.5.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -1130,14 +1130,14 @@ dependencies = [
 
 [[package]]
 name = "indicatif"
-version = "0.17.11"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "183b3088984b400f4cfac3620d5e076c84da5364016b4f49473de574b2586235"
+checksum = "70a646d946d06bedbbc4cac4c218acf4bbf2d87757a784857025f4d447e4e1cd"
 dependencies = [
  "console",
- "number_prefix",
  "portable-atomic",
  "unicode-width",
+ "unit-prefix",
  "web-time",
 ]
 
@@ -1251,12 +1251,12 @@ checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
 [[package]]
 name = "libdlpi-sys"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#e0b59b089ed2e9041ce0930784650485f33846df"
+source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#bc75c49c365534f4764dec5853a75c7c9f4567c1"
 
 [[package]]
 name = "libdlpi-sys"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys#e0b59b089ed2e9041ce0930784650485f33846df"
+source = "git+https://github.com/oxidecomputer/dlpi-sys#bc75c49c365534f4764dec5853a75c7c9f4567c1"
 
 [[package]]
 name = "libloading"
@@ -1271,7 +1271,7 @@ dependencies = [
 [[package]]
 name = "libnet"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#18ffe4b4ef6a18ec83c4ba92e3c8b3c8a539ced4"
+source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#edbf966dab4ea27af8163e9296484d3e51ec84b0"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1284,7 +1284,7 @@ dependencies = [
  "oxnet",
  "rand",
  "rusty-doors",
- "socket2",
+ "socket2 0.6.0",
  "thiserror 2.0.12",
  "tracing",
  "winnow 0.7.11",
@@ -1522,12 +1522,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "number_prefix"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
-
-[[package]]
 name = "nvpair"
 version = "0.5.0"
 source = "git+https://github.com/jmesmon/rust-libzfs?branch=master#ecd5a922247a6c5acef55d76c5b8d115572bc850"
@@ -1636,7 +1630,7 @@ checksum = "80e1dc143c5a701f879552428910f357df8bd725575087cc713088fdfeafe812"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#610fedf645ae3d0d412cf8436d0dd7ab0ff3641c"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#cc823fb624e1aae6a48e4e60c6bf990ee21442f5"
 dependencies = [
  "colored",
  "regex",
@@ -1645,7 +1639,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#610fedf645ae3d0d412cf8436d0dd7ab0ff3641c"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#cc823fb624e1aae6a48e4e60c6bf990ee21442f5"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1658,7 +1652,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#610fedf645ae3d0d412cf8436d0dd7ab0ff3641c"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#cc823fb624e1aae6a48e4e60c6bf990ee21442f5"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1671,7 +1665,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#610fedf645ae3d0d412cf8436d0dd7ab0ff3641c"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#cc823fb624e1aae6a48e4e60c6bf990ee21442f5"
 dependencies = [
  "bitvec",
  "num",
@@ -2609,9 +2603,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "socket2"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "233504af464074f9d066d7b5416c5f9b894a5862a6506e306f7b816cdd6f1807"
+dependencies = [
+ "libc",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#cefe12d53443e953918672643c2a9c1a00237ab5"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#9f5546eaabc04725df76126a8d120c4d5bf836e2"
 dependencies = [
  "p4rs",
  "serde",
@@ -2622,7 +2626,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#cefe12d53443e953918672643c2a9c1a00237ab5"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#9f5546eaabc04725df76126a8d120c4d5bf836e2"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -2762,7 +2766,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#610fedf645ae3d0d412cf8436d0dd7ab0ff3641c"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#cc823fb624e1aae6a48e4e60c6bf990ee21442f5"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -2897,7 +2901,7 @@ dependencies = [
  "pin-project-lite",
  "signal-hook-registry",
  "slab",
- "socket2",
+ "socket2 0.5.10",
  "tokio-macros",
  "windows-sys 0.52.0",
 ]
@@ -3097,6 +3101,12 @@ name = "unicode-width"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a1a07cc7db3810833284e8d372ccdc6da29741639ecc70c9ec107df0fa6154c"
+
+[[package]]
+name = "unit-prefix"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "323402cff2dd658f39ca17c789b502021b3f18707c91cdf22e3838e1b4023817"
 
 [[package]]
 name = "untrusted"
@@ -3821,7 +3831,7 @@ dependencies = [
 [[package]]
 name = "ztest"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/falcon#a993ed9d6637981bc464b363636441cf44433306"
+source = "git+https://github.com/oxidecomputer/falcon#bfcf50ebd5aa308990c858606ebf4e6cc3a0a119"
 dependencies = [
  "anyhow",
  "libnet",
