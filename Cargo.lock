@@ -511,7 +511,7 @@ dependencies = [
 [[package]]
 name = "dlpi"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#bc75c49c365534f4764dec5853a75c7c9f4567c1"
+source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#1992e01e17002877d03864b29b9d501512a7cac2"
 dependencies = [
  "libc",
  "libdlpi-sys 0.1.0 (git+https://github.com/oxidecomputer/dlpi-sys?branch=main)",
@@ -524,7 +524,7 @@ dependencies = [
 [[package]]
 name = "dlpi"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys#bc75c49c365534f4764dec5853a75c7c9f4567c1"
+source = "git+https://github.com/oxidecomputer/dlpi-sys#1992e01e17002877d03864b29b9d501512a7cac2"
 dependencies = [
  "libc",
  "libdlpi-sys 0.1.0 (git+https://github.com/oxidecomputer/dlpi-sys)",
@@ -958,9 +958,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f66d5bd4c6f02bf0542fad85d626775bab9258cf795a4256dcaf3161114d1df"
+checksum = "8d9b05277c7e8da2c93a568989bb6207bef0112e8d17df7a6eda4a3cf143bc5e"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -971,7 +971,7 @@ dependencies = [
  "hyper",
  "libc",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.0",
  "tokio",
  "tower-service",
  "tracing",
@@ -1143,9 +1143,9 @@ dependencies = [
 
 [[package]]
 name = "io-uring"
-version = "0.7.8"
+version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b86e202f00093dcba4275d4636b93ef9dd75d025ae560d2521b45ea28ab49013"
+checksum = "d93587f37623a1a17d94ef2bc9ada592f5465fe7732084ab7beefabe5c77c0c4"
 dependencies = [
  "bitflags 2.9.1",
  "cfg-if",
@@ -1251,12 +1251,12 @@ checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
 [[package]]
 name = "libdlpi-sys"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#bc75c49c365534f4764dec5853a75c7c9f4567c1"
+source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#1992e01e17002877d03864b29b9d501512a7cac2"
 
 [[package]]
 name = "libdlpi-sys"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys#bc75c49c365534f4764dec5853a75c7c9f4567c1"
+source = "git+https://github.com/oxidecomputer/dlpi-sys#1992e01e17002877d03864b29b9d501512a7cac2"
 
 [[package]]
 name = "libloading"
@@ -1271,7 +1271,7 @@ dependencies = [
 [[package]]
 name = "libnet"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#e99a6d90b2ed22dc2290b018f038f42288b697c9"
+source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#4796d6b96df6f5cb6a4774996801cb16325b770b"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1630,7 +1630,7 @@ checksum = "8200429754152e6379fbb1dd06eea90156c3b67591f6e31d08e787d010ef0168"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#54896c69577e7106f277401aa66301855fd1f0c8"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#d12254ef4de50eece30e4906d83650b597f7f9e8"
 dependencies = [
  "colored",
  "regex",
@@ -1639,7 +1639,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#54896c69577e7106f277401aa66301855fd1f0c8"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#d12254ef4de50eece30e4906d83650b597f7f9e8"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1652,7 +1652,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#54896c69577e7106f277401aa66301855fd1f0c8"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#d12254ef4de50eece30e4906d83650b597f7f9e8"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1665,7 +1665,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#54896c69577e7106f277401aa66301855fd1f0c8"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#d12254ef4de50eece30e4906d83650b597f7f9e8"
 dependencies = [
  "bitvec",
  "num",
@@ -1962,9 +1962,9 @@ checksum = "bbc83ee4a840062f368f9096d80077a9841ec117e17e7f700df81958f1451254"
 
 [[package]]
 name = "prettyplease"
-version = "0.2.35"
+version = "0.2.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "061c1221631e079b26479d25bbf2275bfe5917ae8419cd7e34f13bfc2aa7539a"
+checksum = "ff24dfcda44452b9816fff4cd4227e1bb73ff5a2f1bc1105aa92fb8565ce44d2"
 dependencies = [
  "proc-macro2",
  "syn 2.0.104",
@@ -2074,9 +2074,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.14"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de3a5d9f0aba1dbcec1cc47f0ff94a4b778fe55bca98a6dfa92e4e094e57b1c4"
+checksum = "7251471db004e509f4e75a62cca9435365b5ec7bcdff530d612ac7c87c44a792"
 dependencies = [
  "bitflags 2.9.1",
 ]
@@ -2137,9 +2137,9 @@ dependencies = [
 
 [[package]]
 name = "rustc-demangle"
-version = "0.1.25"
+version = "0.1.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "989e6739f80c4ad5b13e0fd7fe89531180375b18520cc8c82080e4dc4035b84f"
+checksum = "56f7d92ca342cea22a06f2121d944b4fd82af56988c270852495420f961d4ace"
 
 [[package]]
 name = "rustix"
@@ -2156,9 +2156,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.29"
+version = "0.23.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2491382039b29b9b11ff08b76ff6c97cf287671dbb74f0be44bda389fffe9bd1"
+checksum = "069a8df149a16b1a12dcc31497c3396a173844be3cac4bd40c9e7671fef96671"
 dependencies = [
  "log",
  "once_cell",
@@ -2615,7 +2615,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#35505f063d2a123384afa5bea8103e1084e3ee4e"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#e19b7fa203a35e4084cd04604fd47ba626c0d33b"
 dependencies = [
  "p4rs",
  "serde",
@@ -2626,7 +2626,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#35505f063d2a123384afa5bea8103e1084e3ee4e"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#e19b7fa203a35e4084cd04604fd47ba626c0d33b"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -2766,7 +2766,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#54896c69577e7106f277401aa66301855fd1f0c8"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#d12254ef4de50eece30e4906d83650b597f7f9e8"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -3846,7 +3846,7 @@ dependencies = [
 [[package]]
 name = "ztest"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/falcon#6a1c83809666abd3cad5db28aad641b4b755c263"
+source = "git+https://github.com/oxidecomputer/falcon#f0c66ecc7d0b12106ccefe08da0d9ee90f0f7f23"
 dependencies = [
  "anyhow",
  "libnet",
