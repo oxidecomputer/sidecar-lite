@@ -69,6 +69,9 @@ control ingress(
 
     action decap_geneve() {
         hdr.geneve.setInvalid();
+        hdr.ox_opt_tag.setInvalid();
+        hdr.ox_mcast_body.setInvalid();
+        hdr.ox_mss_body.setInvalid();
         hdr.ethernet = hdr.inner_eth;
         hdr.inner_eth.setInvalid();
         if (hdr.inner_ipv4.isValid()) {
@@ -236,12 +239,12 @@ control nat_ingress(
 
         // 4-byte option -- 'VPC-external packet'.
         // XXX: const GENEVE_OPT_CLASS_OXIDE not recognised here by x4c.
-        hdr.ox_external_tag.class = 16w0x0129;
-        hdr.ox_external_tag.crit = 1w0;
-        hdr.ox_external_tag.rtype = 7w0x00;
-        hdr.ox_external_tag.reserved = 3w0;
-        hdr.ox_external_tag.opt_len = 5w0;
-        hdr.ox_external_tag.setValid();
+        hdr.ox_opt_tag.class = 16w0x0129;
+        hdr.ox_opt_tag.crit = 1w0;
+        hdr.ox_opt_tag.rtype = 7w0x00;
+        hdr.ox_opt_tag.reserved = 3w0;
+        hdr.ox_opt_tag.opt_len = 5w0;
+        hdr.ox_opt_tag.setValid();
 
         /// TODO: this is broken so just set to zero for now.
         hdr.udp.checksum = csum.run({
@@ -256,7 +259,7 @@ control nat_ingress(
             hdr.geneve.protocol,
             hdr.geneve.vni,
             8w0x00,
-            hdr.ox_external_tag.class,
+            hdr.ox_opt_tag.class,
             orig_l3_csum,
         });
         hdr.udp.checksum = 16w0;

@@ -103,21 +103,46 @@ parser parse(
 
     state geneve {
         pkt.extract(hdr.geneve);
-        if (hdr.geneve.opt_len == 6w0x00) { transition inner_eth; }
-        if (hdr.geneve.opt_len == 6w0x01) { transition geneve_opt; }
-        transition reject;
+        if (hdr.geneve.opt_len == 6w0x00) {
+            transition inner_eth;
+        }
+        transition geneve_opt;
     }
 
     state geneve_opt {
-        pkt.extract(hdr.ox_external_tag);
+        pkt.extract(hdr.ox_opt_tag);
         // XXX: const GENEVE_OPT_CLASS_OXIDE not recognised here by x4c.
-        if (hdr.ox_external_tag.class == 16w0x0129) { transition geneve_ox_opt; }
+        if (hdr.ox_opt_tag.class == 16w0x0129) { transition geneve_ox_opt; }
         transition reject;
     }
 
     state geneve_ox_opt {
-        if (hdr.ox_external_tag.rtype == 7w0x00) { transition inner_eth; }
+        if (hdr.ox_opt_tag.rtype == 7w0x00) { transition geneve_opt_external; }
+        if (hdr.ox_opt_tag.rtype == 7w0x01) { transition geneve_opt_mcast; }
+        if (hdr.ox_opt_tag.rtype == 7w0x02) { transition geneve_opt_mss; }
+
         transition reject;
+    }
+
+    state geneve_opt_external {
+        // &&, || currently invalid in expressions here.
+        if (hdr.geneve.opt_len != 6w1) { transition reject; }
+        if (hdr.ox_opt_tag.opt_len != 5w0) { transition reject; }
+        transition inner_eth;
+    }
+
+    state geneve_opt_mcast {
+        if (hdr.geneve.opt_len != 6w2) { transition reject; }
+        if (hdr.ox_opt_tag.opt_len != 5w1) { transition reject; }
+        pkt.extract(hdr.ox_mcast_body);
+        transition inner_eth;
+    }
+
+    state geneve_opt_mss {
+        if (hdr.geneve.opt_len != 6w2) { transition reject; }
+        if (hdr.ox_opt_tag.opt_len != 5w1) { transition reject; }
+        pkt.extract(hdr.ox_mss_body);
+        transition inner_eth;
     }
 
     state inner_eth {

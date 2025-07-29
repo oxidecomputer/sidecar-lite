@@ -1,4 +1,4 @@
-// Copyright 2024 Oxide Computer Company
+// Copyright 2025 Oxide Computer Company
 
 header sidecar_h {
     bit<8> sc_code;
@@ -95,6 +95,15 @@ header geneve_opt_h {
     bit<5> opt_len;
 }
 
+header oxg_opt_multicast_h {
+    bit<2> replication;
+    bit<30> reserved;
+}
+
+header oxg_opt_mss_h {
+    bit<32> mss;
+}
+
 header arp_h {
 	bit<16>		hw_type;
 	bit<16>		proto_type;
@@ -156,8 +165,14 @@ struct headers_t {
     tcp_h tcp;
     udp_h udp;
 
+    // As above, x4c does not support header stacks. We're assuming that OPTE
+    // and SoftNPU will, for now, push at most one option. Sidecar also makes
+    // the same assumption.
     geneve_h geneve;
-    geneve_opt_h    ox_external_tag;
+    geneve_opt_h ox_opt_tag;
+    oxg_opt_multicast_h ox_mcast_body;
+    oxg_opt_mss_h ox_mss_body;
+
     ethernet_h inner_eth;
     ipv4_h inner_ipv4;
     ipv6_h inner_ipv6;
