@@ -8,6 +8,7 @@ use pnet::packet::ip::IpNextHeaderProtocol;
 use pnet::packet::ipv4::{Ipv4Packet, MutableIpv4Packet};
 use pnet::packet::ipv6::{Ipv6Packet, MutableIpv6Packet};
 use pnet::packet::udp::{MutableUdpPacket, UdpPacket};
+use pnet::packet::MutablePacket;
 use pnet::packet::Packet;
 use pnet::util::MacAddr;
 use pnet_macros::Packet as PktDerive;
@@ -306,6 +307,131 @@ fn vlan_routing_ingress() -> Result<(), anyhow::Error> {
     assert_eq!(geneve_opt.get_critical_option(), 0);
     assert_eq!(geneve_opt.get_option_type(), 0);
     assert_eq!(geneve_opt.get_option_len(), 0);
+
+    Ok(())
+}
+
+#[test]
+fn geneve_options_preserved_on_underlay() -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(3);
+    pipeline_init(&mut pipeline);
+
+    // router entry downstream
+    let (key_buf, param_buf) = router_entry("fd00:2::", 64, "fe80::2", 2);
+    pipeline
+        .add_ingress_router_v6_rtr_entry("forward", &key_buf, &param_buf, 0);
+
+    // resolver entry for sled
+    let (key_buf, param_buf) =
+        resolver6_entry("fe80::2", [20, 21, 22, 23, 24, 26]);
+    pipeline.add_ingress_resolver_resolver_v6_entry(
+        "rewrite_dst",
+        &key_buf,
+        &param_buf,
+        0,
+    );
+
+    // mac rewrite tables
+    let (key_buf, param_buf) = mac_rewrite_entry(2, [1, 2, 3, 4, 5, 7]);
+    pipeline
+        .add_ingress_mac_mac_rewrite_entry("rewrite", &key_buf, &param_buf, 0);
+
+    let mut npu = SoftNpu::new(3, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy2 = npu.phy(2);
+
+    npu.run();
+
+    // Goal: MSS option should be forwarded intact from port 0 to port 2.
+    let mut n = 8;
+    let mut icmp_data: Vec<u8> = vec![0; n];
+    let mut icmp = MutableIcmpPacket::new(&mut icmp_data).unwrap();
+    icmp.set_payload([0x04, 0x17, 0x00, 0x00].as_slice());
+
+    n += 20;
+    let mut inner_ip_data: Vec<u8> = vec![0; n];
+
+    let inner_src: Ipv4Addr = "1.2.3.4".parse().unwrap();
+    let inner_dst: Ipv4Addr = "8.8.8.8".parse().unwrap();
+    let src: Ipv6Addr = "fd00:1::1".parse().unwrap();
+    let dst: Ipv6Addr = "fd00:2::1".parse().unwrap();
+
+    let mut inner_ip = MutableIpv4Packet::new(&mut inner_ip_data).unwrap();
+    inner_ip.set_version(4);
+    inner_ip.set_source(inner_src);
+    inner_ip.set_header_length(5);
+    inner_ip.set_destination(inner_dst);
+    inner_ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
+    inner_ip.set_total_length(20 + icmp_data.len() as u16);
+    inner_ip.set_payload(&icmp_data);
+
+    n += 14;
+    let mut eth_data: Vec<u8> = vec![0; n];
+    let mut eth = MutableEthernetPacket::new(&mut eth_data).unwrap();
+    eth.set_destination(MacAddr::new(0x11, 0x11, 0x11, 0x22, 0x22, 0x22));
+    eth.set_source(MacAddr::new(0x33, 0x33, 0x33, 0x44, 0x44, 0x44));
+    eth.set_ethertype(EtherType(0x0800));
+    eth.set_payload(&inner_ip_data);
+
+    n += 16;
+    let mut geneve_data: Vec<u8> = vec![0; 16];
+    let mut gen = MutableGenevePacket::new(&mut geneve_data).unwrap();
+    gen.set_version(0);
+    gen.set_options_len(2);
+    gen.set_protocol_type(0x6558);
+    gen.set_vni(7777);
+    let mut genopt = MutableGeneveOptPacket::new(gen.payload_mut()).unwrap();
+    genopt.set_option_class(0x0129);
+    genopt.set_option_type(0x02);
+    genopt.set_option_len(1);
+    genopt.payload_mut().copy_from_slice(&1448u32.to_be_bytes());
+    geneve_data.extend_from_slice(&eth_data);
+
+    n += 8;
+    let mut udp_data: Vec<u8> = vec![0; n];
+    let mut udp = MutableUdpPacket::new(&mut udp_data).unwrap();
+    udp.set_source(100);
+    udp.set_destination(6081);
+    udp.set_checksum(0x1701);
+    udp.set_payload(&geneve_data);
+
+    n += 40;
+    let mut ip_data: Vec<u8> = vec![0; n];
+    let mut ip = MutableIpv6Packet::new(&mut ip_data).unwrap();
+    ip.set_version(6);
+    ip.set_source(src);
+    ip.set_destination(dst);
+    ip.set_payload_length(udp_data.len() as u16);
+    ip.set_payload(&udp_data);
+    ip.set_next_header(IpNextHeaderProtocol::new(17));
+
+    phy0.send(&[TxFrame::new(phy2.mac, 0x86dd, &ip_data)])?;
+
+    let fs = phy2.recv();
+    let f = &fs[0];
+
+    // Assert: Geneve header has been carried over correctly.
+    let ip = Ipv6Packet::new(&f.payload).unwrap();
+    let udp = UdpPacket::new(ip.payload()).unwrap();
+    let geneve = GenevePacket::new(udp.payload()).unwrap();
+    let geneve_opt = GeneveOptPacket::new(geneve.payload()).unwrap();
+
+    assert_eq!(geneve.get_version(), 0);
+    assert_eq!(geneve.get_options_len(), 2);
+    assert_eq!(geneve.get_control_packet(), 0);
+    assert_eq!(geneve.get_has_critical_option(), 0);
+    assert_eq!(geneve.get_protocol_type(), 0x6558);
+    assert_eq!(geneve.get_vni(), 7777);
+
+    assert_eq!(geneve_opt.get_option_class(), 0x0129);
+    assert_eq!(geneve_opt.get_critical_option(), 0);
+    assert_eq!(geneve_opt.get_option_type(), 2);
+    assert_eq!(geneve_opt.get_option_len(), 1);
+
+    assert_eq!(
+        &geneve_opt.payload()[..size_of::<u32>()],
+        &1448u32.to_be_bytes()
+    );
 
     Ok(())
 }
