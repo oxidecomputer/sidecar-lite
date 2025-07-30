@@ -169,9 +169,12 @@ struct headers_t {
     // and SoftNPU will, for now, push at most one option. Sidecar also makes
     // the same assumption.
     geneve_h geneve;
-    geneve_opt_h ox_opt_tag;
-    oxg_opt_multicast_h ox_mcast_body;
-    oxg_opt_mss_h ox_mss_body;
+
+    geneve_opt_h oxg_external_tag;
+    geneve_opt_h oxg_mcast_tag;
+    oxg_opt_multicast_h oxg_mcast;
+    geneve_opt_h oxg_mss_tag;
+    oxg_opt_mss_h oxg_mss;
 
     ethernet_h inner_eth;
     ipv4_h inner_ipv4;

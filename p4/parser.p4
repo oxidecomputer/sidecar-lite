@@ -103,6 +103,7 @@ parser parse(
 
     state geneve {
         pkt.extract(hdr.geneve);
+        ingress.geneve_chunks = hdr.geneve.opt_len;
         if (hdr.geneve.opt_len == 6w0x00) {
             transition inner_eth;
         }
@@ -110,39 +111,53 @@ parser parse(
     }
 
     state geneve_opt {
-        pkt.extract(hdr.ox_opt_tag);
+        pkt.extract(ingress.curr_opt);
+        ingress.geneve_chunks = ingress.geneve_chunks - 6w1;
         // XXX: const GENEVE_OPT_CLASS_OXIDE not recognised here by x4c.
-        if (hdr.ox_opt_tag.class == 16w0x0129) { transition geneve_ox_opt; }
+        if (ingress.curr_opt.class == 16w0x0129) { transition geneve_ox_opt; }
         transition reject;
     }
 
     state geneve_ox_opt {
-        if (hdr.ox_opt_tag.rtype == 7w0x00) { transition geneve_opt_external; }
-        if (hdr.ox_opt_tag.rtype == 7w0x01) { transition geneve_opt_mcast; }
-        if (hdr.ox_opt_tag.rtype == 7w0x02) { transition geneve_opt_mss; }
+        if (ingress.curr_opt.rtype == 7w0x00) { transition geneve_opt_external; }
+        if (ingress.curr_opt.rtype == 7w0x01) { transition geneve_opt_mcast; }
+        if (ingress.curr_opt.rtype == 7w0x02) { transition geneve_opt_mss; }
 
         transition reject;
     }
 
     state geneve_opt_external {
-        // &&, || currently invalid in expressions here.
-        if (hdr.geneve.opt_len != 6w1) { transition reject; }
-        if (hdr.ox_opt_tag.opt_len != 5w0) { transition reject; }
-        transition inner_eth;
+        if (ingress.curr_opt.opt_len != 5w0) { transition reject; }
+        hdr.oxg_external_tag.setValid();
+        hdr.oxg_external_tag = ingress.curr_opt;
+
+        transition geneve_opt_done;
     }
 
     state geneve_opt_mcast {
-        if (hdr.geneve.opt_len != 6w2) { transition reject; }
-        if (hdr.ox_opt_tag.opt_len != 5w1) { transition reject; }
-        pkt.extract(hdr.ox_mcast_body);
-        transition inner_eth;
+        if (ingress.curr_opt.opt_len != 5w1) { transition reject; }
+        ingress.geneve_chunks = ingress.geneve_chunks - 6w1;
+        hdr.oxg_mcast_tag.setValid();
+        hdr.oxg_mcast_tag = ingress.curr_opt;
+        pkt.extract(hdr.oxg_mcast);
+
+        transition geneve_opt_done;
     }
 
     state geneve_opt_mss {
-        if (hdr.geneve.opt_len != 6w2) { transition reject; }
-        if (hdr.ox_opt_tag.opt_len != 5w1) { transition reject; }
-        pkt.extract(hdr.ox_mss_body);
-        transition inner_eth;
+        if (ingress.curr_opt.opt_len != 5w1) { transition reject; }
+        ingress.geneve_chunks = ingress.geneve_chunks - 6w1;
+        hdr.oxg_mss_tag.setValid();
+        hdr.oxg_mss_tag = ingress.curr_opt;
+        pkt.extract(hdr.oxg_mss);
+
+        transition geneve_opt_done;
+    }
+
+    state geneve_opt_done {
+        if (ingress.geneve_chunks == 6w0) { transition inner_eth; }
+        if (ingress.geneve_chunks > 6w0) { transition geneve_opt; }
+        transition reject;
     }
 
     state inner_eth {

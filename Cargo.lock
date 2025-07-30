@@ -1630,7 +1630,7 @@ checksum = "8200429754152e6379fbb1dd06eea90156c3b67591f6e31d08e787d010ef0168"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#d12254ef4de50eece30e4906d83650b597f7f9e8"
+source = "git+https://github.com/oxidecomputer/p4?branch=ry%2Fsubtraction#b522c6fa82e5dc0b815790a8d198b957bafefeb2"
 dependencies = [
  "colored",
  "regex",
@@ -1639,7 +1639,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#d12254ef4de50eece30e4906d83650b597f7f9e8"
+source = "git+https://github.com/oxidecomputer/p4?branch=ry%2Fsubtraction#b522c6fa82e5dc0b815790a8d198b957bafefeb2"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1652,7 +1652,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#d12254ef4de50eece30e4906d83650b597f7f9e8"
+source = "git+https://github.com/oxidecomputer/p4?branch=ry%2Fsubtraction#b522c6fa82e5dc0b815790a8d198b957bafefeb2"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1666,6 +1666,17 @@ dependencies = [
 name = "p4rs"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/p4?branch=main#d12254ef4de50eece30e4906d83650b597f7f9e8"
+dependencies = [
+ "bitvec",
+ "num",
+ "serde",
+ "usdt 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "p4rs"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/p4?branch=ry%2Fsubtraction#b522c6fa82e5dc0b815790a8d198b957bafefeb2"
 dependencies = [
  "bitvec",
  "num",
@@ -2242,7 +2253,7 @@ dependencies = [
  "libc",
  "macaddr",
  "num",
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=ry%2Fsubtraction)",
  "serde",
  "serde_json",
  "softnpu",
@@ -2462,7 +2473,7 @@ dependencies = [
  "colored",
  "num",
  "p4-macro",
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=ry%2Fsubtraction)",
  "pnet",
  "pnet_macros",
  "pnet_macros_support",
@@ -2617,7 +2628,7 @@ name = "softnpu"
 version = "0.2.0"
 source = "git+https://github.com/oxidecomputer/softnpu?branch=main#e19b7fa203a35e4084cd04604fd47ba626c0d33b"
 dependencies = [
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
  "serde",
  "serde_json",
  "tokio",
@@ -2766,14 +2777,14 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#d12254ef4de50eece30e4906d83650b597f7f9e8"
+source = "git+https://github.com/oxidecomputer/p4?branch=ry%2Fsubtraction#b522c6fa82e5dc0b815790a8d198b957bafefeb2"
 dependencies = [
  "anyhow",
  "bitvec",
  "colored",
  "num",
  "p4-macro",
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=ry%2Fsubtraction)",
  "pnet",
  "rand",
  "usdt 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",

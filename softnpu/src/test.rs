@@ -433,6 +433,125 @@ fn geneve_options_preserved_on_underlay() -> Result<(), anyhow::Error> {
         &1448u32.to_be_bytes()
     );
 
+    // Goal 2: What about *two* options?
+    let mut n = 8;
+    let mut icmp_data: Vec<u8> = vec![0; n];
+    let mut icmp = MutableIcmpPacket::new(&mut icmp_data).unwrap();
+    icmp.set_payload([0x04, 0x17, 0x00, 0x00].as_slice());
+
+    n += 20;
+    let mut inner_ip_data: Vec<u8> = vec![0; n];
+
+    let inner_src: Ipv4Addr = "1.2.3.4".parse().unwrap();
+    let inner_dst: Ipv4Addr = "8.8.8.8".parse().unwrap();
+    let src: Ipv6Addr = "fd00:1::1".parse().unwrap();
+    let dst: Ipv6Addr = "fd00:2::1".parse().unwrap();
+
+    let mut inner_ip = MutableIpv4Packet::new(&mut inner_ip_data).unwrap();
+    inner_ip.set_version(4);
+    inner_ip.set_source(inner_src);
+    inner_ip.set_header_length(5);
+    inner_ip.set_destination(inner_dst);
+    inner_ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
+    inner_ip.set_total_length(20 + icmp_data.len() as u16);
+    inner_ip.set_payload(&icmp_data);
+
+    n += 14;
+    let mut eth_data: Vec<u8> = vec![0; n];
+    let mut eth = MutableEthernetPacket::new(&mut eth_data).unwrap();
+    eth.set_destination(MacAddr::new(0x11, 0x11, 0x11, 0x22, 0x22, 0x22));
+    eth.set_source(MacAddr::new(0x33, 0x33, 0x33, 0x44, 0x44, 0x44));
+    eth.set_ethertype(EtherType(0x0800));
+    eth.set_payload(&inner_ip_data);
+
+    n += 24;
+    let mut geneve_data: Vec<u8> = vec![0; 24];
+    let mut gen = MutableGenevePacket::new(&mut geneve_data).unwrap();
+    gen.set_version(0);
+    gen.set_options_len(4);
+    gen.set_protocol_type(0x6558);
+    gen.set_vni(7777);
+
+    let opt_space = gen.payload_mut();
+    let mut mcastopt =
+        MutableGeneveOptPacket::new(&mut opt_space[8..]).unwrap();
+    mcastopt.set_option_class(0x0129);
+    mcastopt.set_option_type(0x01);
+    mcastopt.set_option_len(1);
+    mcastopt
+        .payload_mut()
+        .copy_from_slice(&0x8000_0000u32.to_be_bytes());
+    let mut mssopt = MutableGeneveOptPacket::new(&mut opt_space[..8]).unwrap();
+    mssopt.set_option_class(0x0129);
+    mssopt.set_option_type(0x02);
+    mssopt.set_option_len(1);
+    mssopt.payload_mut().copy_from_slice(&1448u32.to_be_bytes());
+    geneve_data.extend_from_slice(&eth_data);
+
+    n += 8;
+    let mut udp_data: Vec<u8> = vec![0; n];
+    let mut udp = MutableUdpPacket::new(&mut udp_data).unwrap();
+    udp.set_source(100);
+    udp.set_destination(6081);
+    udp.set_checksum(0x1701);
+    udp.set_payload(&geneve_data);
+
+    n += 40;
+    let mut ip_data: Vec<u8> = vec![0; n];
+    let mut ip = MutableIpv6Packet::new(&mut ip_data).unwrap();
+    ip.set_version(6);
+    ip.set_source(src);
+    ip.set_destination(dst);
+    ip.set_payload_length(udp_data.len() as u16);
+    ip.set_payload(&udp_data);
+    ip.set_next_header(IpNextHeaderProtocol::new(17));
+
+    phy0.send(&[TxFrame::new(phy2.mac, 0x86dd, &ip_data)])?;
+
+    let fs = phy2.recv();
+    let f = &fs[0];
+
+    // Assert: Geneve header has been carried over correctly.
+    let ip = Ipv6Packet::new(&f.payload).unwrap();
+    let udp = UdpPacket::new(ip.payload()).unwrap();
+    let geneve = GenevePacket::new(udp.payload()).unwrap();
+    let geneve_opt_0 = GeneveOptPacket::new(geneve.payload()).unwrap();
+    let geneve_opt_0_payl = geneve_opt_0.payload();
+    let geneve_opt_1 = GeneveOptPacket::new(&geneve_opt_0_payl[4..]).unwrap();
+    let geneve_opt_1_payl = geneve_opt_1.payload();
+
+    assert_eq!(geneve.get_version(), 0);
+    assert_eq!(geneve.get_options_len(), 4);
+    assert_eq!(geneve.get_control_packet(), 0);
+    assert_eq!(geneve.get_has_critical_option(), 0);
+    assert_eq!(geneve.get_protocol_type(), 0x6558);
+    assert_eq!(geneve.get_vni(), 7777);
+
+    // NOTE: these are **not** in the same order as we put them in.
+    // Since we are not making use of header stacks (and need to
+    // extract semantics from e.g. multicast info), the switch places
+    // each header in a dedcated slot. When deparsing, these are
+    // returned in that internal order.
+    assert_eq!(geneve_opt_0.get_option_class(), 0x0129);
+    assert_eq!(geneve_opt_0.get_critical_option(), 0);
+    assert_eq!(geneve_opt_0.get_option_type(), 1);
+    assert_eq!(geneve_opt_0.get_option_len(), 1);
+
+    assert_eq!(
+        &geneve_opt_0_payl[..size_of::<u32>()],
+        &0x8000_0000u32.to_be_bytes()
+    );
+
+    assert_eq!(geneve_opt_1.get_option_class(), 0x0129);
+    assert_eq!(geneve_opt_1.get_critical_option(), 0);
+    assert_eq!(geneve_opt_1.get_option_type(), 2);
+    assert_eq!(geneve_opt_1.get_option_len(), 1);
+
+    assert_eq!(
+        &geneve_opt_1_payl[..size_of::<u32>()],
+        &1448u32.to_be_bytes()
+    );
+
     Ok(())
 }
 
