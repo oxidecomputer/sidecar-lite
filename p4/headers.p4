@@ -1,4 +1,4 @@
-// Copyright 2024 Oxide Computer Company
+// Copyright 2025 Oxide Computer Company
 
 header sidecar_h {
     bit<8> sc_code;
@@ -95,6 +95,15 @@ header geneve_opt_h {
     bit<5> opt_len;
 }
 
+header oxg_opt_multicast_h {
+    bit<2> replication;
+    bit<30> reserved;
+}
+
+header oxg_opt_mss_h {
+    bit<32> mss;
+}
+
 header arp_h {
 	bit<16>		hw_type;
 	bit<16>		proto_type;
@@ -157,7 +166,21 @@ struct headers_t {
     udp_h udp;
 
     geneve_h geneve;
-    geneve_opt_h    ox_external_tag;
+
+    // As above, x4c does not support header stacks. We do need to inspect
+    // some headers (e.g., oxg_mcast) to determine correct forwarding
+    // behaviour for multicast traffic, which means that at least some
+    // headers must be well-typed. The construction here provides this, but
+    // allows for at most one of each option. If/when we need passthrough for
+    // arbitrary-sized options, we can do so using a similar design as above
+    // (although g_tag_0, g_chunk_0_0, g_chunk_0_1, g_chunk_0_2, ... would not
+    // be pretty).
+    geneve_opt_h oxg_external_tag;
+    geneve_opt_h oxg_mcast_tag;
+    oxg_opt_multicast_h oxg_mcast;
+    geneve_opt_h oxg_mss_tag;
+    oxg_opt_mss_h oxg_mss;
+
     ethernet_h inner_eth;
     ipv4_h inner_ipv4;
     ipv6_h inner_ipv6;
