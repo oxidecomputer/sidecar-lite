@@ -165,11 +165,16 @@ struct headers_t {
     tcp_h tcp;
     udp_h udp;
 
-    // As above, x4c does not support header stacks. We're assuming that OPTE
-    // and SoftNPU will, for now, push at most one option. Sidecar also makes
-    // the same assumption.
     geneve_h geneve;
 
+    // As above, x4c does not support header stacks. We do need to inspect
+    // some headers (e.g., oxg_mcast) to determine correct forwarding
+    // behaviour for multicast traffic, which means that at least some
+    // headers must be well-typed. The construction here provides this, but
+    // allows for at most one of each option. If/when we need passthrough for
+    // arbitrary-sized options, we can do so using a similar design as above
+    // (although g_tag_0, g_chunk_0_0, g_chunk_0_1, g_chunk_0_2, ... would not
+    // be pretty).
     geneve_opt_h oxg_external_tag;
     geneve_opt_h oxg_mcast_tag;
     oxg_opt_multicast_h oxg_mcast;
