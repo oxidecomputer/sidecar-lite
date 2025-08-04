@@ -216,9 +216,9 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "cc"
-version = "1.2.30"
+version = "1.2.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deec109607ca693028562ed836a5f1c4b8bd77755c4e132fc5ce11b0b6211ae7"
+checksum = "c3a42d84bb6b69d3a8b3eaacf0d88f179e1929695e1ad012b6cf64d9caaa5fd2"
 dependencies = [
  "shlex",
 ]
@@ -335,7 +335,7 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fde0e0ec90c9dfb3b4b1a0891a7dcd0e2bffde2f7efed5fe7c9bb00e5bfb915e"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -511,7 +511,7 @@ dependencies = [
 [[package]]
 name = "dlpi"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#1992e01e17002877d03864b29b9d501512a7cac2"
+source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#58c71c61c8df3d29c2b609b858cc0676fcf2991a"
 dependencies = [
  "libc",
  "libdlpi-sys 0.1.0 (git+https://github.com/oxidecomputer/dlpi-sys?branch=main)",
@@ -524,7 +524,7 @@ dependencies = [
 [[package]]
 name = "dlpi"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys#1992e01e17002877d03864b29b9d501512a7cac2"
+source = "git+https://github.com/oxidecomputer/dlpi-sys#58c71c61c8df3d29c2b609b858cc0676fcf2991a"
 dependencies = [
  "libc",
  "libdlpi-sys 0.1.0 (git+https://github.com/oxidecomputer/dlpi-sys)",
@@ -550,7 +550,7 @@ dependencies = [
 [[package]]
 name = "dof"
 version = "0.3.0"
-source = "git+https://github.com/oxidecomputer/usdt#3be852d33261d9bfa265ef7915d19e6eb9e58825"
+source = "git+https://github.com/oxidecomputer/usdt#9462ce6613cc6aa3561fe741d1a1ef3cee98a16e"
 dependencies = [
  "goblin 0.10.0",
  "pretty-hex",
@@ -574,7 +574,7 @@ dependencies = [
 [[package]]
 name = "dtrace-parser"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/usdt#3be852d33261d9bfa265ef7915d19e6eb9e58825"
+source = "git+https://github.com/oxidecomputer/usdt#9462ce6613cc6aa3561fe741d1a1ef3cee98a16e"
 dependencies = [
  "pest",
  "pest_derive",
@@ -971,7 +971,7 @@ dependencies = [
  "hyper",
  "libc",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.0",
  "tokio",
  "tower-service",
  "tracing",
@@ -1179,7 +1179,7 @@ checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
 dependencies = [
  "hermit-abi 0.5.2",
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1251,12 +1251,12 @@ checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
 [[package]]
 name = "libdlpi-sys"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#1992e01e17002877d03864b29b9d501512a7cac2"
+source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#58c71c61c8df3d29c2b609b858cc0676fcf2991a"
 
 [[package]]
 name = "libdlpi-sys"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys#1992e01e17002877d03864b29b9d501512a7cac2"
+source = "git+https://github.com/oxidecomputer/dlpi-sys#58c71c61c8df3d29c2b609b858cc0676fcf2991a"
 
 [[package]]
 name = "libloading"
@@ -1265,13 +1265,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
- "windows-targets 0.53.2",
+ "windows-targets 0.53.3",
 ]
 
 [[package]]
 name = "libnet"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#4796d6b96df6f5cb6a4774996801cb16325b770b"
+source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#b2c6db276d4975501bb7f65d493ed0ff3715eedc"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1292,9 +1292,9 @@ dependencies = [
 
 [[package]]
 name = "libredox"
-version = "0.1.6"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4488594b9328dee448adb906d8b126d9b7deb7cf5c22161ee591610bb1be83c0"
+checksum = "391290121bad3d37fbddad76d8f5d1c1c314cfc646d143d7e07a3086ddff0ce3"
 dependencies = [
  "bitflags 2.9.1",
  "libc",
@@ -1665,7 +1665,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#d12254ef4de50eece30e4906d83650b597f7f9e8"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#ae7f336b2f3f8b29f66d723094dbb2a94fb20e81"
 dependencies = [
  "bitvec",
  "num",
@@ -2074,9 +2074,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.16"
+version = "0.5.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7251471db004e509f4e75a62cca9435365b5ec7bcdff530d612ac7c87c44a792"
+checksum = "5407465600fb0548f1442edf71dd20683c6ed326200ace4b1ef0763521bb3b77"
 dependencies = [
  "bitflags 2.9.1",
 ]
@@ -2156,9 +2156,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.30"
+version = "0.23.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "069a8df149a16b1a12dcc31497c3396a173844be3cac4bd40c9e7671fef96671"
+checksum = "c0ebcbd2f03de0fc1122ad9bb24b127a5a6cd51d72604a3f3c50ac459762b6cc"
 dependencies = [
  "log",
  "once_cell",
@@ -2472,9 +2472,9 @@ dependencies = [
 
 [[package]]
 name = "signal-hook-registry"
-version = "1.4.5"
+version = "1.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9203b8055f63a2a00e2f593bb0510367fe707d7ff1e5c872de2f537b339e5410"
+checksum = "b2a4719bff48cee6b39d12c020eeb490953ad2443b7055bd0b21fca26bd8c28b"
 dependencies = [
  "libc",
 ]
@@ -2615,7 +2615,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#e19b7fa203a35e4084cd04604fd47ba626c0d33b"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#202152de1ec9036430c713f2ae913d02ca5bb5c5"
 dependencies = [
  "p4rs",
  "serde",
@@ -2626,7 +2626,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#e19b7fa203a35e4084cd04604fd47ba626c0d33b"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#202152de1ec9036430c713f2ae913d02ca5bb5c5"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -2740,7 +2740,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2929,9 +2929,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.15"
+version = "0.7.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66a539a9ad6d5d281510d5bd368c973d636c02dbf8a67300bfb6b950696ad7df"
+checksum = "14307c986784f72ef81c89db7d9e28d6ac26d16213b109ea501696195e6e3ce5"
 dependencies = [
  "bytes",
  "futures-core",
@@ -2942,9 +2942,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.9.2"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed0aee96c12fa71097902e0bb061a5e1ebd766a6636bb605ba401c45c1650eac"
+checksum = "41ae868b5a0f67631c14589f7e250c1ea2c574ee5ba21c6c8dd4b1485705a5a1"
 dependencies = [
  "indexmap 2.10.0",
  "serde",
@@ -3160,7 +3160,7 @@ dependencies = [
 [[package]]
 name = "usdt"
 version = "0.5.0"
-source = "git+https://github.com/oxidecomputer/usdt#3be852d33261d9bfa265ef7915d19e6eb9e58825"
+source = "git+https://github.com/oxidecomputer/usdt#9462ce6613cc6aa3561fe741d1a1ef3cee98a16e"
 dependencies = [
  "dof 0.3.0 (git+https://github.com/oxidecomputer/usdt)",
  "goblin 0.10.0",
@@ -3188,7 +3188,7 @@ dependencies = [
 [[package]]
 name = "usdt-attr-macro"
 version = "0.5.0"
-source = "git+https://github.com/oxidecomputer/usdt#3be852d33261d9bfa265ef7915d19e6eb9e58825"
+source = "git+https://github.com/oxidecomputer/usdt#9462ce6613cc6aa3561fe741d1a1ef3cee98a16e"
 dependencies = [
  "dtrace-parser 0.2.0 (git+https://github.com/oxidecomputer/usdt)",
  "proc-macro2",
@@ -3221,7 +3221,7 @@ dependencies = [
 [[package]]
 name = "usdt-impl"
 version = "0.5.0"
-source = "git+https://github.com/oxidecomputer/usdt#3be852d33261d9bfa265ef7915d19e6eb9e58825"
+source = "git+https://github.com/oxidecomputer/usdt#9462ce6613cc6aa3561fe741d1a1ef3cee98a16e"
 dependencies = [
  "byteorder",
  "dof 0.3.0 (git+https://github.com/oxidecomputer/usdt)",
@@ -3253,7 +3253,7 @@ dependencies = [
 [[package]]
 name = "usdt-macro"
 version = "0.5.0"
-source = "git+https://github.com/oxidecomputer/usdt#3be852d33261d9bfa265ef7915d19e6eb9e58825"
+source = "git+https://github.com/oxidecomputer/usdt#9462ce6613cc6aa3561fe741d1a1ef3cee98a16e"
 dependencies = [
  "dtrace-parser 0.2.0 (git+https://github.com/oxidecomputer/usdt)",
  "proc-macro2",
@@ -3402,7 +3402,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3494,7 +3494,7 @@ version = "0.60.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2f500e4d28234f72040990ec9d39e3a6b950f9f22d3dba18416c35882612bcb"
 dependencies = [
- "windows-targets 0.53.2",
+ "windows-targets 0.53.3",
 ]
 
 [[package]]
@@ -3515,10 +3515,11 @@ dependencies = [
 
 [[package]]
 name = "windows-targets"
-version = "0.53.2"
+version = "0.53.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c66f69fcc9ce11da9966ddb31a40968cad001c5bedeb5c2b82ede4253ab48aef"
+checksum = "d5fe6031c4041849d7c496a8ded650796e7b6ecc19df1a431c1a363342e5dc91"
 dependencies = [
+ "windows-link",
  "windows_aarch64_gnullvm 0.53.0",
  "windows_aarch64_msvc 0.53.0",
  "windows_i686_gnu 0.53.0",
@@ -3846,7 +3847,7 @@ dependencies = [
 [[package]]
 name = "ztest"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/falcon#f0c66ecc7d0b12106ccefe08da0d9ee90f0f7f23"
+source = "git+https://github.com/oxidecomputer/falcon#c6a8ea324ff22bd7d0ba14137a8480f6fe2b6e9d"
 dependencies = [
  "anyhow",
  "libnet",
