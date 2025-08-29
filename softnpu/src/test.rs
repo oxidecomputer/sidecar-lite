@@ -60,9 +60,16 @@ fn pipeline_init(pipeline: &mut main_pipeline) {
     );
 
     // router entry downstream
-    let (key_buf, param_buf) = router_entry("fd00:1::", 64, "fe80::1", 0);
+    // Add a single path for fd00::1 pointing at data in slot 2.
+    let (key_buf, param_buf) = router_idx_entry("fd00:1::", 64, 2, 1);
     pipeline
-        .add_ingress_router_v6_rtr_entry("forward", &key_buf, &param_buf, 0);
+        .add_ingress_router_v6_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+
+    // At slot 2, add a forwarding entry gw=fe80::1 port=0
+    let (key_buf, param_buf) = router_forward_entry(2, "fe80::1", 0);
+    pipeline.add_ingress_router_v6_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
 
     // nat entry
     let (key_buf, param_buf) = nat4_entry(
@@ -317,9 +324,16 @@ fn geneve_options_preserved_on_underlay() -> Result<(), anyhow::Error> {
     pipeline_init(&mut pipeline);
 
     // router entry downstream
-    let (key_buf, param_buf) = router_entry("fd00:2::", 64, "fe80::2", 2);
+    // Add a single path for fd00:2:: pointing at data in slot 4.
+    let (key_buf, param_buf) = router_idx_entry("fd00:2::", 64, 4, 1);
     pipeline
-        .add_ingress_router_v6_rtr_entry("forward", &key_buf, &param_buf, 0);
+        .add_ingress_router_v6_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+
+    // At slot 4, add a forwarding entry gw=fe80::2 port=2
+    let (key_buf, param_buf) = router_forward_entry(4, "fe80::2", 2);
+    pipeline.add_ingress_router_v6_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
 
     // resolver entry for sled
     let (key_buf, param_buf) =
@@ -578,30 +592,6 @@ fn router_idx_entry(
 // Create an entry for the multipath index -> forwarding data table
 fn router_forward_entry(idx: u16, gw: &str, port: u16) -> (Vec<u8>, Vec<u8>) {
     let key_buf = idx.to_le_bytes().to_vec();
-
-    let mut param_buf = port.to_le_bytes().to_vec();
-
-    let mut nexthop_buf = match gw.parse().unwrap() {
-        IpAddr::V4(a) => a.octets().to_vec(),
-        IpAddr::V6(a) => a.octets().to_vec(),
-    };
-    nexthop_buf.reverse();
-    param_buf.extend_from_slice(&nexthop_buf);
-
-    (key_buf, param_buf)
-}
-
-fn router_entry(
-    dst: &str,
-    prefix_len: u8,
-    gw: &str,
-    port: u16,
-) -> (Vec<u8>, Vec<u8>) {
-    let mut key_buf = match dst.parse().unwrap() {
-        IpAddr::V4(a) => a.octets().to_vec(),
-        IpAddr::V6(a) => a.octets().to_vec(),
-    };
-    key_buf.push(prefix_len);
 
     let mut param_buf = port.to_le_bytes().to_vec();
 

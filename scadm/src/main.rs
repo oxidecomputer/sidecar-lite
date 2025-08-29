@@ -207,7 +207,8 @@ enum Commands {
 
 const ROUTER_V4_RT: &str = "ingress.router.v4_route.rtr";
 const ROUTER_V4_IDX: &str = "ingress.router.v4_idx.rtr";
-const ROUTER_V6: &str = "ingress.router.v6.rtr";
+const ROUTER_V6_RT: &str = "ingress.router.v6_route.rtr";
+const ROUTER_V6_IDX: &str = "ingress.router.v6_idx.rtr";
 const LOCAL_V6: &str = "ingress.local.local_v6";
 const LOCAL_V4: &str = "ingress.local.local_v4";
 const NAT_V4: &str = "ingress.nat.nat_v4";
@@ -218,37 +219,47 @@ const MAC_REWRITE: &str = "ingress.mac.mac_rewrite";
 const PROXY_ARP: &str = "ingress.pxarp.proxy_arp";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct Ipv4Cidr {
-    address: Ipv4Addr,
+struct Cidr {
+    address: IpAddr,
     mask: u8,
 }
 
-struct V4RouteData {
-    data: BTreeMap<Ipv4Cidr, u16>,
+enum RouteType {
+    V4,
+    V6,
 }
 
-impl V4RouteData {
+struct RouteData {
+    data: BTreeMap<Cidr, u16>,
+}
+
+impl RouteData {
     // Given the full set of tables, extract the data from the route->idx table
     fn extract_route_idx(
+        typ: RouteType,
         full: &BTreeMap<String, Vec<TableEntry>>,
-    ) -> BTreeMap<Ipv4Cidr, u16> {
-        let mut table = BTreeMap::new();
-        for e in full.get(ROUTER_V4_IDX).unwrap() {
+    ) -> BTreeMap<Cidr, u16> {
+        let mut data = BTreeMap::new();
+        let table = match typ {
+            RouteType::V4 => ROUTER_V4_IDX,
+            RouteType::V6 => ROUTER_V6_IDX,
+        };
+        for e in full.get(table).unwrap() {
             let subnet = match get_addr_subnet(&e.keyset_data) {
-                Some((IpAddr::V4(address), mask)) => Ipv4Cidr { address, mask },
+                Some((address, mask)) => Cidr { address, mask },
                 _ => continue,
             };
-            let idx = match get_v4_idx_slots(&e.parameter_data) {
+            let idx = match get_idx_slots(&e.parameter_data) {
                 Some((idx, _slots)) => idx,
                 None => continue,
             };
-            table.insert(subnet, idx);
+            data.insert(subnet, idx);
         }
-        table
+        data
     }
 
-    // Fetch the v4 route->idx table
-    pub async fn load(cli: &Cli) -> Self {
+    // Fetch the route->idx table
+    pub async fn load(typ: RouteType, cli: &Cli) -> Self {
         let data = match cli.mode {
             Mode::Standalone => {
                 let (tx, rx) = std::sync::mpsc::channel();
@@ -257,7 +268,7 @@ impl V4RouteData {
                     if let ManagementResponse::DumpResponse(ref tables) =
                         recv_uds(uds).await
                     {
-                        let table = V4RouteData::extract_route_idx(tables);
+                        let table = RouteData::extract_route_idx(typ, tables);
                         tx.send(table).unwrap();
                     }
                 });
@@ -266,15 +277,15 @@ impl V4RouteData {
                 rx.recv().unwrap().clone()
             }
             Mode::Propolis => {
-                V4RouteData::extract_route_idx(&dump_tables_propolis())
+                RouteData::extract_route_idx(typ, &dump_tables_propolis())
             }
         };
         Self { data }
     }
 
     // Given a route destination, find the corresponding table index
-    pub fn lookup(&self, address: Ipv4Addr, mask: u8) -> Option<u16> {
-        let cidr = Ipv4Cidr { address, mask };
+    pub fn lookup(&self, address: IpAddr, mask: u8) -> Option<u16> {
+        let cidr = Cidr { address, mask };
         self.data.get(&cidr).copied()
     }
 
@@ -300,7 +311,7 @@ async fn main() {
             port,
             nexthop,
         } => {
-            let table = V4RouteData::load(&cli).await;
+            let table = RouteData::load(RouteType::V4, &cli).await;
             let idx = table.find_available();
 
             // Add idx->route to the route table
@@ -342,8 +353,8 @@ async fn main() {
             .await;
         }
         Commands::RemoveRoute4 { destination, mask } => {
-            let table = V4RouteData::load(&cli).await;
-            if let Some(idx) = table.lookup(destination, mask) {
+            let table = RouteData::load(RouteType::V4, &cli).await;
+            if let Some(idx) = table.lookup(IpAddr::V4(destination), mask) {
                 // Remove the entry from the subnet->idx table
                 let mut keyset_data: Vec<u8> = destination.octets().into();
                 keyset_data.push(mask);
@@ -377,8 +388,11 @@ async fn main() {
             port,
             nexthop,
         } => {
-            let mut keyset_data: Vec<u8> = destination.octets().into();
-            keyset_data.push(mask);
+            let table = RouteData::load(RouteType::V6, &cli).await;
+            let idx = table.find_available();
+
+            // Add idx->route to the route table
+            let keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
 
             let mut parameter_data = port.to_le_bytes().to_vec();
             let mut nexthop_data: Vec<u8> = nexthop.octets().into();
@@ -387,7 +401,7 @@ async fn main() {
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
-                    table: ROUTER_V6.into(),
+                    table: ROUTER_V6_RT.into(),
                     action: "forward".into(),
                     keyset_data,
                     parameter_data,
@@ -395,20 +409,54 @@ async fn main() {
                 &cli,
             )
             .await;
-        }
 
-        Commands::RemoveRoute6 { destination, mask } => {
+            // Now add cidr->idx to the index table
             let mut keyset_data: Vec<u8> = destination.octets().into();
             keyset_data.push(mask);
 
+            // Hardcoded slot count.
+            let mut parameter_data = idx.to_le_bytes().to_vec();
+            parameter_data.extend_from_slice(&1u8.to_le_bytes());
+
             send(
-                ManagementRequest::TableRemove(TableRemove {
-                    table: ROUTER_V6.into(),
+                ManagementRequest::TableAdd(TableAdd {
+                    table: ROUTER_V6_IDX.into(),
+                    action: "index".into(),
                     keyset_data,
+                    parameter_data,
                 }),
                 &cli,
             )
             .await;
+        }
+        Commands::RemoveRoute6 { destination, mask } => {
+            let table = RouteData::load(RouteType::V6, &cli).await;
+            if let Some(idx) = table.lookup(IpAddr::V6(destination), mask) {
+                // Remove the entry from the subnet->idx table
+                let mut keyset_data: Vec<u8> = destination.octets().into();
+                keyset_data.push(mask);
+
+                send(
+                    ManagementRequest::TableRemove(TableRemove {
+                        table: ROUTER_V6_IDX.into(),
+                        keyset_data,
+                    }),
+                    &cli,
+                )
+                .await;
+
+                // Remove the entry from the idx->route table table
+                let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+                keyset_data.push(mask);
+                send(
+                    ManagementRequest::TableRemove(TableRemove {
+                        table: ROUTER_V6_RT.into(),
+                        keyset_data,
+                    }),
+                    &cli,
+                )
+                .await;
+            }
         }
 
         Commands::AddNat4 {
@@ -821,10 +869,22 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         }
     }
 
-    println!("router v6:");
-    for e in table.get(ROUTER_V6).unwrap() {
+    println!("router v6_idx:");
+    for e in table.get(ROUTER_V6_IDX).unwrap() {
         let tgt = match get_addr_subnet(&e.keyset_data) {
             Some((a, m)) => format!("{a}/{m}"),
+            None => "?".into(),
+        };
+        let idx = match get_idx_slots(&e.parameter_data) {
+            Some((idx, _slots)) => format!("{idx}"),
+            None => "?".into(),
+        };
+        println!("{tgt} -> {idx}");
+    }
+    println!("router v6_routes:");
+    for e in table.get(ROUTER_V6_RT).unwrap() {
+        let idx = match get_u16(&e.keyset_data) {
+            Some(idx) => format!("{idx}"),
             None => "?".into(),
         };
         if e.action_id == "forward" {
@@ -832,24 +892,25 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
                 Some((a, p)) => format!("{a} ({p})"),
                 None => "?".into(),
             };
-            println!("{tgt} -> {gw}");
+            println!("{idx} -> {gw}");
         } else if e.action_id == "forward_vlan" {
             let gw = match get_port_addr_vlan(&e.parameter_data, false) {
                 Some((a, p, v)) => format!("{a} ({p}) vid: {v}"),
                 None => "?".into(),
             };
-            println!("{tgt} -> {gw}");
+            println!("{idx} -> {gw}");
         } else {
             println!("unrecognized action: {}", e.action_id);
         }
     }
+
     println!("router v4_idx:");
     for e in table.get(ROUTER_V4_IDX).unwrap() {
         let tgt = match get_addr_subnet(&e.keyset_data) {
             Some((a, m)) => format!("{a}/{m}"),
             None => "?".into(),
         };
-        let idx = match get_v4_idx_slots(&e.parameter_data) {
+        let idx = match get_idx_slots(&e.parameter_data) {
             Some((idx, _slots)) => format!("{idx}"),
             None => "?".into(),
         };
@@ -1036,7 +1097,7 @@ fn get_mac(data: &[u8]) -> Option<[u8; 6]> {
     }
 }
 
-fn get_v4_idx_slots(data: &[u8]) -> Option<(u16, u8)> {
+fn get_idx_slots(data: &[u8]) -> Option<(u16, u8)> {
     match data.len() {
         3 => Some((
             u16::from_le_bytes([data[0], data[1]]),
