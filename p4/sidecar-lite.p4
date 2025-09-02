@@ -347,7 +347,7 @@ control router_v4_route(
         egress.drop = false;
     }
 
-    action forward_vlan(bit<16> port, bit<32> nexthop, bit<12>vlan_id) {
+    action forward_vlan(bit<16> port, bit<32> nexthop, bit<12> vlan_id) {
         egress.port = port;
         egress.vlan_id = vlan_id;
         egress.nexthop_v4 = nexthop;
