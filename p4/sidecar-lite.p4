@@ -381,14 +381,14 @@ control router_v4_idx(
     }
 }
 
-control router_v6(
-    in bit<128> dst,
+control router_v6_route(
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
     table rtr {
-        key = { dst: lpm; }
-        actions = { drop; forward; forward_vlan; }
+        key = { ingress.path_idx: exact; }
+        actions = { forward; forward_vlan; }
+        // should never happen, but the compiler requires a default
         default_action = drop;
     }
 
@@ -403,11 +403,37 @@ control router_v6(
         egress.drop = false;
     }
 
-    action forward_vlan(bit<16> port, bit<128> nexthop, bit<12>vlan_id) {
+    action forward_vlan(bit<16> port, bit<128> nexthop, bit<12> vlan_id) {
         egress.port = port;
         egress.vlan_id = vlan_id;
         egress.nexthop_v6 = nexthop;
         egress.drop = false;
+    }
+}
+
+control router_v6_idx(
+    in bit<128> dst_addr,
+    in bit<128> src_addr,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
+) {
+    Checksum() csum;
+
+    table rtr {
+        key = { dst_addr: lpm; }
+        actions = { drop; index; }
+        default_action = drop;
+    }
+
+    apply { rtr.apply(); }
+
+    action drop() { egress.drop = true; }
+
+    action index(bit<16> idx, bit<8> slots) {
+        bit<16> hash = csum.run({dst_addr, src_addr});
+        bit<16> extended_slots = slots;
+        bit<16> offset = hash % extended_slots;
+        ingress.path_idx = idx + offset;
     }
 }
 
@@ -418,7 +444,8 @@ control router(
 ) {
     router_v4_idx() v4_idx;
     router_v4_route() v4_route;
-    router_v6() v6;
+    router_v6_idx() v6_idx;
+    router_v6_route() v6_route;
 
     apply {
         bit<16> outport = 0;
@@ -429,8 +456,9 @@ control router(
             v4_route.apply(ingress, egress);
         }
         if (hdr.ipv6.isValid()) {
-            v6.apply(hdr.ipv6.dst, ingress, egress);
+            v6_idx.apply(hdr.ipv6.dst, hdr.ipv6.src, ingress, egress);
             if (egress.drop == true) { return; }
+            v6_route.apply(ingress, egress);
         }
         outport = egress.port;
         if (egress.vlan_id != 12w0) {
