@@ -1524,9 +1524,9 @@ dependencies = [
 
 [[package]]
 name = "octocrab"
-version = "0.44.1"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86996964f8b721067b6ed238aa0ccee56ecad6ee5e714468aa567992d05d2b91"
+checksum = "e9142159757f166a7b20e3dcd410a5af008a63747c73e836a01fa4f7af84d2c4"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -1607,7 +1607,7 @@ checksum = "8200429754152e6379fbb1dd06eea90156c3b67591f6e31d08e787d010ef0168"
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#aee448cd7b1544b699a573ffe2c1e0701299d6cf"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#27c5c5eb63e49f5c261b0972841a9b577f5b08d1"
 dependencies = [
  "colored",
  "regex",
@@ -1616,7 +1616,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#aee448cd7b1544b699a573ffe2c1e0701299d6cf"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#27c5c5eb63e49f5c261b0972841a9b577f5b08d1"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1629,7 +1629,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#aee448cd7b1544b699a573ffe2c1e0701299d6cf"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#27c5c5eb63e49f5c261b0972841a9b577f5b08d1"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1642,7 +1642,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#aee448cd7b1544b699a573ffe2c1e0701299d6cf"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#27c5c5eb63e49f5c261b0972841a9b577f5b08d1"
 dependencies = [
  "bitvec",
  "num",
@@ -2584,7 +2584,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#a685afc99e174ac85d76de9bcff914e7a62b4b10"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#1088c4ddeb20b7aa8fc21753d38adc77d02283f9"
 dependencies = [
  "p4rs",
  "serde",
@@ -2595,7 +2595,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#a685afc99e174ac85d76de9bcff914e7a62b4b10"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#1088c4ddeb20b7aa8fc21753d38adc77d02283f9"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -2733,7 +2733,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#aee448cd7b1544b699a573ffe2c1e0701299d6cf"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#27c5c5eb63e49f5c261b0972841a9b577f5b08d1"
 dependencies = [
  "anyhow",
  "bitvec",
