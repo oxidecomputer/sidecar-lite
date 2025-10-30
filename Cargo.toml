@@ -12,7 +12,7 @@ p4-test = { package = "tests", git = "https://github.com/oxidecomputer/p4", bran
 usdt = { git = "https://github.com/oxidecomputer/usdt" }
 
 base64 = { version = "0.22" }
-clap = { version = "4.5.50", features = ["derive", "unstable-styles"] }
+clap = { version = "4.5.51", features = ["derive", "unstable-styles"] }
 anstyle = "1.0.13"
 libc = "0.2"
 serde = "1.0"
