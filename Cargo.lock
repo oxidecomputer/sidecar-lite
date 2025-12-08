@@ -141,9 +141,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "base64ct"
-version = "1.8.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55248b47b0caf0546f7988906588779981c43bb1bc9d0c44087278f80cdb44ba"
+checksum = "0e050f626429857a27ddccb31e0aca21356bfa709c04041aefddac081a8f068a"
 
 [[package]]
 name = "bitflags"
@@ -230,9 +230,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.48"
+version = "1.2.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c481bdbf0ed3b892f6f806287d72acd515b352a4ec27a208489b8c1bc839633a"
+checksum = "90583009037521a116abf44494efecd645ba48b6622457080f080b85544e2215"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -562,7 +562,7 @@ dependencies = [
 [[package]]
 name = "dlpi"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#0a0b98721c2b789767c7b54217e3cb8e702fcc38"
+source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#2f5c441a8c0902d547e55a72346054709252cb18"
 dependencies = [
  "libc",
  "libdlpi-sys 0.1.0 (git+https://github.com/oxidecomputer/dlpi-sys?branch=main)",
@@ -575,7 +575,7 @@ dependencies = [
 [[package]]
 name = "dlpi"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys#0a0b98721c2b789767c7b54217e3cb8e702fcc38"
+source = "git+https://github.com/oxidecomputer/dlpi-sys#2f5c441a8c0902d547e55a72346054709252cb18"
 dependencies = [
  "libc",
  "libdlpi-sys 0.1.0 (git+https://github.com/oxidecomputer/dlpi-sys)",
@@ -601,7 +601,7 @@ dependencies = [
 [[package]]
 name = "dof"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/usdt#8b2654e509af5497b57d645f3c592bf0382b3bd7"
+source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
 dependencies = [
  "goblin 0.10.4",
  "pretty-hex",
@@ -625,7 +625,7 @@ dependencies = [
 [[package]]
 name = "dtrace-parser"
 version = "0.3.0"
-source = "git+https://github.com/oxidecomputer/usdt#8b2654e509af5497b57d645f3c592bf0382b3bd7"
+source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
 dependencies = [
  "pest",
  "pest_derive",
@@ -1118,9 +1118,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52e9a2a24dc5c6821e71a7030e1e14b7b632acac55c40e9d2e082c621261bb56"
+checksum = "727805d60e7938b76b826a6ef209eb70eaa1812794f9424d4a4e2d740662df5f"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1406,12 +1406,12 @@ checksum = "37c93d8daa9d8a012fd8ab92f088405fb202ea0b6ab73ee2482ae66af4f42091"
 [[package]]
 name = "libdlpi-sys"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#0a0b98721c2b789767c7b54217e3cb8e702fcc38"
+source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#2f5c441a8c0902d547e55a72346054709252cb18"
 
 [[package]]
 name = "libdlpi-sys"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys#0a0b98721c2b789767c7b54217e3cb8e702fcc38"
+source = "git+https://github.com/oxidecomputer/dlpi-sys#2f5c441a8c0902d547e55a72346054709252cb18"
 
 [[package]]
 name = "libloading"
@@ -1432,7 +1432,7 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 [[package]]
 name = "libnet"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#3eb1a6ad0b713660b367ce275e0a3896eabe19d4"
+source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#2cd6617e4a768521ad66a094d66e03390001ba9b"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1486,9 +1486,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.28"
+version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
+checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
 name = "macaddr"
@@ -1522,9 +1522,9 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69d83b0086dc8ecf3ce9ae2874b2d1290252e2a30720bea58a5c6639b0092873"
+checksum = "a69bcab0ad47271a0234d9422b131806bf3968021e5dc9328caf2d4cd58557fc"
 dependencies = [
  "libc",
  "wasi",
@@ -1696,9 +1696,9 @@ source = "git+https://github.com/jmesmon/rust-libzfs?branch=master#ecd5a922247a6
 
 [[package]]
 name = "octocrab"
-version = "0.48.0"
+version = "0.48.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03c4c16af97628682471056f83897a89e84238cc422a2af37c367acb3206a4b8"
+checksum = "c5930b376c98c438a4f4259a760cda2c198efea3b82de8f8a2aff0c00a8b7c1c"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -2199,7 +2199,7 @@ version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "219cb19e96be00ab2e37d6e299658a0cfa83e52429179969b0f0121b4ac46983"
 dependencies = [
- "toml_edit 0.23.7",
+ "toml_edit 0.23.9",
 ]
 
 [[package]]
@@ -2923,7 +2923,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#ddb8c8b893830493db87b748e2ca4f74ee2ebb98"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#ddfab45a9249e2749b46ab05610d3db8e5e04ce3"
 dependencies = [
  "p4rs",
  "serde",
@@ -2934,7 +2934,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#ddb8c8b893830493db87b748e2ca4f74ee2ebb98"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#ddfab45a9249e2749b46ab05610d3db8e5e04ce3"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -3069,9 +3069,9 @@ dependencies = [
 
 [[package]]
 name = "term"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2111ef44dae28680ae9752bb89409e7310ca33a8c621ebe7b106cf5c928b3ac0"
+checksum = "d8c27177b12a6399ffc08b98f76f7c9a1f4fe9fc967c784c5a071fa8d93cf7e1"
 dependencies = [
  "windows-sys 0.61.2",
 ]
@@ -3312,9 +3312,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.23.7"
+version = "0.23.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6485ef6d0d9b5d0ec17244ff7eb05310113c3f316f2d14200d4de56b3cb98f8d"
+checksum = "5d7cbc3b4b49633d57a0509303158ca50de80ae32c265093b24c414705807832"
 dependencies = [
  "indexmap 2.12.1",
  "toml_datetime 0.7.3",
@@ -3490,7 +3490,7 @@ dependencies = [
 [[package]]
 name = "usdt"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#8b2654e509af5497b57d645f3c592bf0382b3bd7"
+source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
 dependencies = [
  "dof 0.4.0",
  "goblin 0.10.4",
@@ -3518,7 +3518,7 @@ dependencies = [
 [[package]]
 name = "usdt-attr-macro"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#8b2654e509af5497b57d645f3c592bf0382b3bd7"
+source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
 dependencies = [
  "dtrace-parser 0.3.0",
  "proc-macro2",
@@ -3551,7 +3551,7 @@ dependencies = [
 [[package]]
 name = "usdt-impl"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#8b2654e509af5497b57d645f3c592bf0382b3bd7"
+source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
 dependencies = [
  "byteorder",
  "dof 0.4.0",
@@ -3583,7 +3583,7 @@ dependencies = [
 [[package]]
 name = "usdt-macro"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#8b2654e509af5497b57d645f3c592bf0382b3bd7"
+source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
 dependencies = [
  "dtrace-parser 0.3.0",
  "proc-macro2",
@@ -4169,7 +4169,7 @@ dependencies = [
 [[package]]
 name = "ztest"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/falcon#5f572ed55ec3ed6521e643e3bf9c34362d8db48a"
+source = "git+https://github.com/oxidecomputer/falcon#901f44d199d34c207ab3fc2119aa180138bedd27"
 dependencies = [
  "anyhow",
  "libnet",
