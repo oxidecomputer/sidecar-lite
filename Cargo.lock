@@ -198,20 +198,21 @@ checksum = "b35204fbdc0b3f4446b89fc1ac2cf84a8a68971995d0bf2e925ec7cd960f9cb3"
 
 [[package]]
 name = "camino"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "276a59bf2b2c967788139340c9f0c5b12d7fd6630315c15c217e559de85d2609"
+checksum = "e629a66d692cb9ff1a1c664e41771b3dcaf961985a9774c0eb0bd1b51cf60a48"
 dependencies = [
  "serde_core",
 ]
 
 [[package]]
 name = "cargo-platform"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "122ec45a44b270afd1402f351b782c676b173e3c3fb28d86ff7ebfb4d86a4ee4"
+checksum = "87a0c0e6148f11f01f32650a2ea02d532b2ad4e81d8bd41e6e565b5adc5e6082"
 dependencies = [
  "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -601,7 +602,7 @@ dependencies = [
 [[package]]
 name = "dof"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
+source = "git+https://github.com/oxidecomputer/usdt#709b613326d26ace9168c923b03c752aeef505f2"
 dependencies = [
  "goblin 0.10.4",
  "pretty-hex",
@@ -625,7 +626,7 @@ dependencies = [
 [[package]]
 name = "dtrace-parser"
 version = "0.3.0"
-source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
+source = "git+https://github.com/oxidecomputer/usdt#709b613326d26ace9168c923b03c752aeef505f2"
 dependencies = [
  "pest",
  "pest_derive",
@@ -1209,9 +1210,9 @@ checksum = "7aedcccd01fc5fe81e6b489c15b247b8b0690feb23304303a9e560f37efc560a"
 
 [[package]]
 name = "icu_properties"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e93fcd3157766c0c8da2f8cff6ce651a31f0810eaa1c51ec363ef790bbb5fb99"
+checksum = "020bfc02fe870ec3a66d93e677ccca0562506e5872c650f893269e08615d74ec"
 dependencies = [
  "icu_collections",
  "icu_locale_core",
@@ -1223,9 +1224,9 @@ dependencies = [
 
 [[package]]
 name = "icu_properties_data"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02845b3647bb045f1100ecd6480ff52f34c35f82d9880e029d329c21d1054899"
+checksum = "616c294cf8d725c6afcd8f55abc17c56464ef6211f9ed59cccffe534129c77af"
 
 [[package]]
 name = "icu_provider"
@@ -1432,7 +1433,7 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 [[package]]
 name = "libnet"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#2cd6617e4a768521ad66a094d66e03390001ba9b"
+source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#763dbb28fe66eb726f43872b5d979c58eb15de6b"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -2923,7 +2924,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#ddfab45a9249e2749b46ab05610d3db8e5e04ce3"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#0f9f2b38bf8e3ebb3275c0d181ff7ebf6a44b073"
 dependencies = [
  "p4rs",
  "serde",
@@ -2934,7 +2935,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#ddfab45a9249e2749b46ab05610d3db8e5e04ce3"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#0f9f2b38bf8e3ebb3275c0d181ff7ebf6a44b073"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -3356,9 +3357,9 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.6.7"
+version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf146f99d442e8e68e585f5d798ccd3cad9a7835b917e09728880a862706456"
+checksum = "d4e6559d53cc268e5031cd8429d05415bc4cb4aefc4aa5d6cc35fbf5b924a1f8"
 dependencies = [
  "bitflags 2.10.0",
  "bytes",
@@ -3490,7 +3491,7 @@ dependencies = [
 [[package]]
 name = "usdt"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
+source = "git+https://github.com/oxidecomputer/usdt#709b613326d26ace9168c923b03c752aeef505f2"
 dependencies = [
  "dof 0.4.0",
  "goblin 0.10.4",
@@ -3518,7 +3519,7 @@ dependencies = [
 [[package]]
 name = "usdt-attr-macro"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
+source = "git+https://github.com/oxidecomputer/usdt#709b613326d26ace9168c923b03c752aeef505f2"
 dependencies = [
  "dtrace-parser 0.3.0",
  "proc-macro2",
@@ -3551,7 +3552,7 @@ dependencies = [
 [[package]]
 name = "usdt-impl"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
+source = "git+https://github.com/oxidecomputer/usdt#709b613326d26ace9168c923b03c752aeef505f2"
 dependencies = [
  "byteorder",
  "dof 0.4.0",
@@ -3583,7 +3584,7 @@ dependencies = [
 [[package]]
 name = "usdt-macro"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#2434a88a0c0b47a12067308a821090e2b050a20e"
+source = "git+https://github.com/oxidecomputer/usdt#709b613326d26ace9168c923b03c752aeef505f2"
 dependencies = [
  "dtrace-parser 0.3.0",
  "proc-macro2",
@@ -4169,7 +4170,7 @@ dependencies = [
 [[package]]
 name = "ztest"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/falcon#901f44d199d34c207ab3fc2119aa180138bedd27"
+source = "git+https://github.com/oxidecomputer/falcon#45a8b502e3c151e02f6b4acc4ffcdd3f2152c3e7"
 dependencies = [
  "anyhow",
  "libnet",
