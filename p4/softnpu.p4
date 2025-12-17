@@ -3,10 +3,13 @@
 #include <headers.p4>
 
 struct ingress_metadata_t {
+    bit<128> forward_tgt;
+    bit<24> forward_vni;
+    bit<48> forward_mac;
     bit<16> port;
     bit<16> nat_id;
     bit<16> path_idx;
-    bool nat;
+    bool forward_needed;
     bool lldp;
 
     // Used as mutable scratchpad shared between parser states.
