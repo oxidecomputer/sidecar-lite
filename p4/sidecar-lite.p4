@@ -158,18 +158,31 @@ control nat_ingress(
     }
 
     apply {
-        if (hdr.ipv4.isValid()) { nat_v4.apply(); }
-        if (hdr.ipv6.isValid()) { nat_v6.apply(); }
+        if (ingress.forward_needed == false) {
+            if (hdr.ipv4.isValid()) {
+                nat_v4.apply();
+            } else if (hdr.ipv6.isValid()) {
+                nat_v6.apply();
+            }
+        }
+        if (ingress.forward_needed == true) {
+            forward_packet();
+        }
     }
 
     action forward_to_sled(bit<128> target, bit<24> vni, bit<48> mac) {
-        ingress.nat = true;
+        ingress.forward_tgt = target;
+        ingress.forward_vni = vni;
+        ingress.forward_mac = mac;
+        ingress.forward_needed = true;
+    }
 
+    action forward_packet() {
         bit<16> orig_l3_len = 0;
         bit<16> orig_l3_csum = 0;
 
         hdr.inner_eth = hdr.ethernet;
-        hdr.inner_eth.dst = mac;
+        hdr.inner_eth.dst = ingress.forward_mac;
         hdr.inner_eth.setValid();
         if (hdr.vlan.isValid()) {
             hdr.inner_eth.ether_type = hdr.vlan.ether_type;
@@ -218,7 +231,7 @@ control nat_ingress(
         hdr.ipv6.hop_limit = 8w255;
         // XXX hardcoded boundary services addr
         hdr.ipv6.src = 128w0xfd000099000000000000000000000001;
-        hdr.ipv6.dst = target;
+        hdr.ipv6.dst = ingress.forward_tgt;
         hdr.ipv6.setValid();
 
         // set up outer udp
@@ -235,7 +248,7 @@ control nat_ingress(
         hdr.geneve.crit = 1w0;
         hdr.geneve.reserved = 6w0;
         hdr.geneve.protocol = 16w0x6558;
-        hdr.geneve.vni = vni;
+        hdr.geneve.vni = ingress.forward_vni;
         hdr.geneve.reserved2 = 8w0;
         hdr.geneve.setValid();
 
@@ -266,7 +279,6 @@ control nat_ingress(
         });
         hdr.udp.checksum = 16w0;
     }
-
 }
 
 control local(
@@ -286,14 +298,45 @@ control local(
         default_action = nonlocal;
     }
 
-    apply {
-        if(hdr.ipv6.isValid()) {
-            local_v6.apply();
-            if(hdr.ipv6.dst[127:112] == 16w0xff02) { is_local = true; }
+    table ext_subnet_v4 {
+        key = {
+            hdr.ipv4.dst:   lpm;
         }
-        if(hdr.ipv4.isValid()) { local_v4.apply(); }
-        if(hdr.arp.isValid())  { is_local = true; }
-        if(ingress.lldp)       { is_local = true; }
+        actions = { forward_to_sled; }
+        default_action = NoAction;
+    }
+
+    table ext_subnet_v6 {
+        key = {
+            hdr.ipv6.dst:   lpm;
+        }
+        actions = { forward_to_sled; }
+        default_action = NoAction;
+    }
+
+    apply {
+        if (hdr.ipv4.isValid()) {
+            ext_subnet_v4.apply();
+        } else if (hdr.ipv6.isValid()) {
+            ext_subnet_v6.apply();
+        }
+
+        if (ingress.forward_needed == false) {
+            if(hdr.ipv6.isValid()) {
+                local_v6.apply();
+                if(hdr.ipv6.dst[127:112] == 16w0xff02) { is_local = true; }
+            }
+            if(hdr.ipv4.isValid()) { local_v4.apply(); }
+            if(hdr.arp.isValid())  { is_local = true; }
+            if(ingress.lldp)       { is_local = true; }
+        }
+    }
+
+    action forward_to_sled(bit<128> target, bit<24> vni, bit<48> mac) {
+        ingress.forward_tgt = target;
+        ingress.forward_vni = vni;
+        ingress.forward_mac = mac;
+        ingress.forward_needed = true;
     }
 
     action nonlocal() { is_local = false; }
