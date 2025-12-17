@@ -157,9 +157,35 @@ control nat_ingress(
         default_action = NoAction;
     }
 
+    table ext_subnet_v4 {
+        key = {
+            hdr.ipv4.dst:   lpm;
+        }
+        actions = { forward_to_sled; }
+        default_action = NoAction;
+    }
+
+    table ext_subnet_v6 {
+        key = {
+            hdr.ipv6.dst:   lpm;
+        }
+        actions = { forward_to_sled; }
+        default_action = NoAction;
+    }
+
     apply {
-        if (hdr.ipv4.isValid()) { nat_v4.apply(); }
-        if (hdr.ipv6.isValid()) { nat_v6.apply(); }
+        if (hdr.ipv4.isValid()) {
+	    ext_subnet_v4.apply();
+	    if (ingress.nat == false) {
+		nat_v4.apply();
+	    }
+	}
+        if (hdr.ipv6.isValid()) {
+	    ext_subnet_v6.apply();
+	    if (ingress.nat == false) {
+		nat_v6.apply();
+	    }
+ 	}
     }
 
     action forward_to_sled(bit<128> target, bit<24> vni, bit<48> mac) {
