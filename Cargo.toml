@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "softnpu",
-    "scadm",
+    "scadm"
 ]
 resolver = "2"
 

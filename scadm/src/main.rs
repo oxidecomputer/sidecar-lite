@@ -213,6 +213,8 @@ const LOCAL_V6: &str = "ingress.local.local_v6";
 const LOCAL_V4: &str = "ingress.local.local_v4";
 const NAT_V4: &str = "ingress.nat.nat_v4";
 const NAT_V6: &str = "ingress.nat.nat_v6";
+const EXT_SUBNET_V4: &str = "ingress.local.ext_subnet_v4";
+const EXT_SUBNET_V6: &str = "ingress.local.ext_subnet_v6";
 const RESOLVER_V4: &str = "ingress.resolver.resolver_v4";
 const RESOLVER_V6: &str = "ingress.resolver.resolver_v6";
 const MAC_REWRITE: &str = "ingress.mac.mac_rewrite";
@@ -1005,7 +1007,36 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         };
         println!("{dst_nat_id} -> {target}");
     }
-
+    println!("ext subnet v4:");
+    for e in table.get(EXT_SUBNET_V4).unwrap() {
+        let subnet = match get_addr_subnet(&e.keyset_data) {
+            Some((a, m)) => format!("{a}/{m}"),
+            _ => continue,
+        };
+        let target = match get_addr_vni_mac(&e.parameter_data) {
+            Some((addr, vni, m)) => format!(
+                "{} {}/{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                addr, vni, m[5], m[4], m[3], m[2], m[1], m[0],
+            ),
+            None => "?".into(),
+        };
+        println!("{subnet} -> {target}");
+    }
+    println!("ext subnet v6:");
+    for e in table.get(EXT_SUBNET_V6).unwrap() {
+        let subnet = match get_addr_subnet(&e.keyset_data) {
+            Some((a, m)) => format!("{a}/{m}"),
+            _ => continue,
+        };
+        let target = match get_addr_vni_mac(&e.parameter_data) {
+            Some((addr, vni, m)) => format!(
+                "{} {}/{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                addr, vni, m[5], m[4], m[3], m[2], m[1], m[0],
+            ),
+            None => "?".into(),
+        };
+        println!("{subnet} -> {target}");
+    }
     println!("port_mac:");
     for e in table.get(MAC_REWRITE).unwrap() {
         let port = u16::from_le_bytes([e.keyset_data[0], e.keyset_data[1]]);
