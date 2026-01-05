@@ -158,13 +158,13 @@ control nat_ingress(
     }
 
     apply {
-	if (ingress.forward_needed == false) {
+        if (ingress.forward_needed == false) {
             if (hdr.ipv4.isValid()) {
-		nat_v4.apply();
-	    } else if (hdr.ipv6.isValid()) {
-		nat_v6.apply();
-	    }
-	}
+                nat_v4.apply();
+            } else if (hdr.ipv6.isValid()) {
+                nat_v6.apply();
+            }
+        }
 	if (ingress.forward_needed == true) {
 		forward_packet();
 	}
@@ -315,11 +315,11 @@ control local(
     }
 
     apply {
-	if (hdr.ipv4.isValid()) {
-	    ext_subnet_v4.apply();
-	} else if (hdr.ipv6.isValid()) {
-	    ext_subnet_v6.apply();
-	}
+        if (hdr.ipv4.isValid()) {
+            ext_subnet_v4.apply();
+        } else if (hdr.ipv6.isValid()) {
+            ext_subnet_v6.apply();
+        }
 
 	if (ingress.forward_needed == false) {
             if(hdr.ipv6.isValid()) {
