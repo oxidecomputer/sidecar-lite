@@ -165,16 +165,16 @@ control nat_ingress(
                 nat_v6.apply();
             }
         }
-	if (ingress.forward_needed == true) {
-		forward_packet();
-	}
+        if (ingress.forward_needed == true) {
+            forward_packet();
+        }
     }
 
     action forward_to_sled(bit<128> target, bit<24> vni, bit<48> mac) {
-	    ingress.forward_tgt = target;
-	    ingress.forward_vni = vni;
-	    ingress.forward_mac = mac;
-	    ingress.forward_needed = true;
+        ingress.forward_tgt = target;
+        ingress.forward_vni = vni;
+        ingress.forward_mac = mac;
+        ingress.forward_needed = true;
     }
 
     action forward_packet() {
@@ -321,7 +321,7 @@ control local(
             ext_subnet_v6.apply();
         }
 
-	if (ingress.forward_needed == false) {
+        if (ingress.forward_needed == false) {
             if(hdr.ipv6.isValid()) {
                 local_v6.apply();
                 if(hdr.ipv6.dst[127:112] == 16w0xff02) { is_local = true; }
@@ -329,14 +329,14 @@ control local(
             if(hdr.ipv4.isValid()) { local_v4.apply(); }
             if(hdr.arp.isValid())  { is_local = true; }
             if(ingress.lldp)       { is_local = true; }
-	}
+        }
     }
 
     action forward_to_sled(bit<128> target, bit<24> vni, bit<48> mac) {
-	    ingress.forward_tgt = target;
-	    ingress.forward_vni = vni;
-	    ingress.forward_mac = mac;
-	    ingress.forward_needed = true;
+        ingress.forward_tgt = target;
+        ingress.forward_vni = vni;
+        ingress.forward_mac = mac;
+        ingress.f`rward_needed = true;
     }
 
     action nonlocal() { is_local = false; }
