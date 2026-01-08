@@ -336,7 +336,7 @@ control local(
         ingress.forward_tgt = target;
         ingress.forward_vni = vni;
         ingress.forward_mac = mac;
-        ingress.f`rward_needed = true;
+        ingress.forward_needed = true;
     }
 
     action nonlocal() { is_local = false; }
