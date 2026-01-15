@@ -922,13 +922,15 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
             Some(idx) => format!("{idx}"),
             None => "?".into(),
         };
-        if e.action_id == "forward" {
+        if e.action_id == "forward" || e.action_id == "forward_v6" {
             let gw = match get_port_addr(&e.parameter_data, false) {
                 Some((a, p)) => format!("{a} ({p})"),
                 None => "?".into(),
             };
             println!("{idx} -> {gw}");
-        } else if e.action_id == "forward_vlan" {
+        } else if e.action_id == "forward_vlan"
+            || e.action_id == "forward_vlan_v6"
+        {
             let gw = match get_port_addr_vlan(&e.parameter_data, false) {
                 Some((a, p, v)) => format!("{a} ({p}) vid: {v}"),
                 None => "?".into(),
