@@ -16,6 +16,7 @@ control ingress(
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
+    attached()      attached;
     local()         local;
     router()        router;
     nat_ingress()   nat;
@@ -53,6 +54,7 @@ control ingress(
             // rack and should be sent to the scrimlet.
             else { fwd_to_scrimlet(); return; }
         } else {
+            attached.apply(ingress, hdr);
             nat.apply(hdr, ingress, egress); // check for ingress nat
         }
 
@@ -159,11 +161,8 @@ control nat_ingress(
 
     apply {
         if (ingress.forward_needed == false) {
-            if (hdr.ipv4.isValid()) {
-                nat_v4.apply();
-            } else if (hdr.ipv6.isValid()) {
-                nat_v6.apply();
-            }
+            if (hdr.ipv4.isValid()) { nat_v4.apply(); }
+            if (hdr.ipv6.isValid()) { nat_v6.apply(); }
         }
         if (ingress.forward_needed == true) {
             forward_packet();
@@ -298,7 +297,25 @@ control local(
         default_action = nonlocal;
     }
 
-    table ext_subnet_v4 {
+    apply {
+        if(hdr.ipv6.isValid()) {
+            local_v6.apply();
+            if(hdr.ipv6.dst[127:112] == 16w0xff02) { is_local = true; }
+        }
+        if(hdr.ipv4.isValid()) { local_v4.apply(); }
+        if(hdr.arp.isValid())  { is_local = true; }
+        if(ingress.lldp)       { is_local = true; }
+    }
+
+    action nonlocal() { is_local = false; }
+    action local()    { is_local = true; }
+}
+
+control attached(
+    inout ingress_metadata_t ingress,
+    inout headers_t hdr,
+) {
+    table attached_subnet_v4 {
         key = {
             hdr.ipv4.dst:   lpm;
         }
@@ -306,7 +323,7 @@ control local(
         default_action = NoAction;
     }
 
-    table ext_subnet_v6 {
+    table attached_subnet_v6 {
         key = {
             hdr.ipv6.dst:   lpm;
         }
@@ -316,19 +333,9 @@ control local(
 
     apply {
         if (hdr.ipv4.isValid()) {
-            ext_subnet_v4.apply();
+            attached_subnet_v4.apply();
         } else if (hdr.ipv6.isValid()) {
-            ext_subnet_v6.apply();
-        }
-
-        if (ingress.forward_needed == false) {
-            if(hdr.ipv6.isValid()) {
-                local_v6.apply();
-                if(hdr.ipv6.dst[127:112] == 16w0xff02) { is_local = true; }
-            }
-            if(hdr.ipv4.isValid()) { local_v4.apply(); }
-            if(hdr.arp.isValid())  { is_local = true; }
-            if(ingress.lldp)       { is_local = true; }
+            attached_subnet_v6.apply();
         }
     }
 
@@ -338,9 +345,6 @@ control local(
         ingress.forward_mac = mac;
         ingress.forward_needed = true;
     }
-
-    action nonlocal() { is_local = false; }
-    action local()    { is_local = true; }
 }
 
 control resolver(
