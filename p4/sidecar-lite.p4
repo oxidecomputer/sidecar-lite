@@ -378,7 +378,7 @@ control router_v4_route(
 ) {
     table rtr {
         key = { ingress.path_idx: exact; }
-        actions = { forward; forward_vlan; }
+        actions = { forward; forward_v6; forward_vlan; forward_vlan_v6; }
         // should never happen, but the compiler requires a default
         default_action = drop;
     }
@@ -394,10 +394,24 @@ control router_v4_route(
         egress.drop = false;
     }
 
+    action forward_v6(bit<16> port, bit<128> nexthop) {
+        egress.port = port;
+        egress.vlan_id = 12w0;
+        egress.nexthop_v6 = nexthop;
+        egress.drop = false;
+    }
+
     action forward_vlan(bit<16> port, bit<32> nexthop, bit<12> vlan_id) {
         egress.port = port;
         egress.vlan_id = vlan_id;
         egress.nexthop_v4 = nexthop;
+        egress.drop = false;
+    }
+
+    action forward_vlan_v6(bit<16> port, bit<128> nexthop, bit<12> vlan_id) {
+        egress.port = port;
+        egress.vlan_id = vlan_id;
+        egress.nexthop_v6 = nexthop;
         egress.drop = false;
     }
 }
