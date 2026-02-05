@@ -364,8 +364,8 @@ control resolver(
     }
 
     apply {
-        if (hdr.ipv4.isValid()) { resolver_v4.apply(); }
-        if (hdr.ipv6.isValid()) { resolver_v6.apply(); }
+        if (egress.nexthop_v4 != 32w0) { resolver_v4.apply(); }
+        if (egress.nexthop_v6 != 128w0) { resolver_v6.apply(); }
     }
 
     action rewrite_dst(bit<48> dst) { hdr.ethernet.dst = dst; }
@@ -391,6 +391,7 @@ control router_v4_route(
         egress.port = port;
         egress.vlan_id = 12w0;
         egress.nexthop_v4 = nexthop;
+        egress.nexthop_v6 = 128w0;
         egress.drop = false;
     }
 
@@ -398,6 +399,7 @@ control router_v4_route(
         egress.port = port;
         egress.vlan_id = 12w0;
         egress.nexthop_v6 = nexthop;
+        egress.nexthop_v4 = 32w0;
         egress.drop = false;
     }
 
@@ -405,6 +407,7 @@ control router_v4_route(
         egress.port = port;
         egress.vlan_id = vlan_id;
         egress.nexthop_v4 = nexthop;
+        egress.nexthop_v6 = 128w0;
         egress.drop = false;
     }
 
@@ -412,6 +415,7 @@ control router_v4_route(
         egress.port = port;
         egress.vlan_id = vlan_id;
         egress.nexthop_v6 = nexthop;
+        egress.nexthop_v4 = 32w0;
         egress.drop = false;
     }
 }
@@ -461,6 +465,7 @@ control router_v6_route(
         egress.port = port;
         egress.vlan_id = 12w0;
         egress.nexthop_v6 = nexthop;
+        egress.nexthop_v4 = 32w0;
         egress.drop = false;
     }
 
@@ -468,6 +473,7 @@ control router_v6_route(
         egress.port = port;
         egress.vlan_id = vlan_id;
         egress.nexthop_v6 = nexthop;
+        egress.nexthop_v4 = 32w0;
         egress.drop = false;
     }
 }
