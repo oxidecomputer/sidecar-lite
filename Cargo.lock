@@ -255,6 +255,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
+name = "chacha20"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f8d983286843e49675a4b7a2d174efe136dc93a18d69130dd18198a6c167601"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.0",
+ "rand_core 0.10.0",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -407,6 +418,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cpufeatures"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b2a41393f66f16b0823bb79094d54ac5fbd34ab292ddafb9a0456ac9f87d201"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "crc32fast"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -499,7 +519,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
 dependencies = [
  "cfg-if",
- "cpufeatures",
+ "cpufeatures 0.2.17",
  "curve25519-dalek-derive",
  "digest",
  "fiat-crypto",
@@ -983,6 +1003,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "r-efi",
+ "rand_core 0.10.0",
  "wasip2",
  "wasip3",
 ]
@@ -1518,7 +1539,7 @@ checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 [[package]]
 name = "libnet"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#99a7e26c6d8b43759ec7e09d10779766d577123f"
+source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#e091a46cadeeb778e1adf846eedb7d252313a6fd"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1529,7 +1550,7 @@ dependencies = [
  "nvpair",
  "nvpair-sys",
  "oxnet",
- "rand 0.9.2",
+ "rand 0.10.0",
  "rusty-doors",
  "socket2",
  "thiserror 2.0.18",
@@ -1940,7 +1961,7 @@ dependencies = [
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#0c9e79ce77dfe151e48bb1b72ea55fedfbd31f94"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#a1840304962af6a0d42d5c3ef064778af167d1c0"
 dependencies = [
  "colored",
  "regex",
@@ -1949,7 +1970,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#0c9e79ce77dfe151e48bb1b72ea55fedfbd31f94"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#a1840304962af6a0d42d5c3ef064778af167d1c0"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1962,7 +1983,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#0c9e79ce77dfe151e48bb1b72ea55fedfbd31f94"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#a1840304962af6a0d42d5c3ef064778af167d1c0"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1975,7 +1996,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#0c9e79ce77dfe151e48bb1b72ea55fedfbd31f94"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#a1840304962af6a0d42d5c3ef064778af167d1c0"
 dependencies = [
  "bitvec",
  "num",
@@ -1986,7 +2007,7 @@ dependencies = [
 [[package]]
 name = "p9ds"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p9fs?branch=main#113f170aff6aa1d5add00c19b3a2f3241e16a763"
+source = "git+https://github.com/oxidecomputer/p9fs?branch=main#04fb133ac730f6f69612dcb20d1cb2195e4e89a6"
 dependencies = [
  "ispf",
  "num_enum 0.5.11",
@@ -1998,7 +2019,7 @@ dependencies = [
 [[package]]
 name = "p9kp"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p9fs?branch=main#113f170aff6aa1d5add00c19b3a2f3241e16a763"
+source = "git+https://github.com/oxidecomputer/p9fs?branch=main#04fb133ac730f6f69612dcb20d1cb2195e4e89a6"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -2413,6 +2434,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc266eb313df6c5c09c1c7b1fbe2510961e5bcd3add930c1e31f7ed9da0feff8"
+dependencies = [
+ "chacha20",
+ "getrandom 0.4.1",
+ "rand_core 0.10.0",
+]
+
+[[package]]
 name = "rand_chacha"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2449,6 +2481,12 @@ checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
 dependencies = [
  "getrandom 0.3.4",
 ]
+
+[[package]]
+name = "rand_core"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c8d0fd677905edcbeedbf2edb6494d676f0e98d54d5cf9bda0b061cb8fb8aba"
 
 [[package]]
 name = "redox_syscall"
@@ -2875,7 +2913,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
 dependencies = [
  "cfg-if",
- "cpufeatures",
+ "cpufeatures 0.2.17",
  "digest",
 ]
 
@@ -3085,7 +3123,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#e4c3130538b192988737161f4a4dc97272f02b9c"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#70647ed1b70c74cb872fa29646678f427952a523"
 dependencies = [
  "p4rs",
  "serde",
@@ -3096,7 +3134,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#e4c3130538b192988737161f4a4dc97272f02b9c"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#70647ed1b70c74cb872fa29646678f427952a523"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -3268,7 +3306,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#0c9e79ce77dfe151e48bb1b72ea55fedfbd31f94"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#a1840304962af6a0d42d5c3ef064778af167d1c0"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -3451,14 +3489,14 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.9.12+spec-1.1.0"
+version = "1.0.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
+checksum = "d1dfefef6a142e93f346b64c160934eb13b5594b84ab378133ac6815cb2bd57f"
 dependencies = [
  "indexmap 2.13.0",
  "serde_core",
  "serde_spanned",
- "toml_datetime 0.7.5+spec-1.1.0",
+ "toml_datetime 1.0.0+spec-1.1.0",
  "toml_parser",
  "toml_writer",
  "winnow 0.7.14",
@@ -3475,6 +3513,15 @@ name = "toml_datetime"
 version = "0.7.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92e1cfed4a3038bc5a127e35a2d360f145e1f4b971b551a2ba5fd7aedf7e1347"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "toml_datetime"
+version = "1.0.0+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32c2555c699578a4f59f0cc68e5116c8d7cabbd45e1409b989d4be085b53f13e"
 dependencies = [
  "serde_core",
 ]
@@ -4497,7 +4544,7 @@ dependencies = [
 [[package]]
 name = "ztest"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/falcon#f5f8fd52ea72167b6a46eff34dc7b46b87d3b5f9"
+source = "git+https://github.com/oxidecomputer/falcon#d809e81eb151b7fcc87d6ca256517b908d3ad66a"
 dependencies = [
  "anyhow",
  "libnet",
