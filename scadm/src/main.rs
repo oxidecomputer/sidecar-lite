@@ -1,4 +1,4 @@
-// Copyright 2022 Oxide Computer Company
+// Copyright 2026 Oxide Computer Company
 
 use softnpu::p4rs::TableEntry;
 use std::collections::BTreeMap;
@@ -317,7 +317,8 @@ async fn main() {
             let idx = table.find_available();
 
             // Add idx->route to the route table
-            let keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+            let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+            keyset_data.push(0);
 
             let mut parameter_data = port.to_le_bytes().to_vec();
             let mut nexthop_data: Vec<u8> = nexthop.octets().into();
@@ -330,6 +331,21 @@ async fn main() {
                     action: "forward".into(),
                     keyset_data,
                     parameter_data,
+                }),
+                &cli,
+            )
+            .await;
+
+            // Add ttl==1 entry to drop.
+            let mut ttl_keyset_data = idx.to_le_bytes().to_vec();
+            ttl_keyset_data.push(1);
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: ROUTER_V4_RT.into(),
+                    action: "ttl_exceeded".into(),
+                    keyset_data: ttl_keyset_data,
+                    parameter_data: Vec::new(),
                 }),
                 &cli,
             )
@@ -371,16 +387,18 @@ async fn main() {
                 .await;
 
                 // Remove the entry from the idx->route table table
-                let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
-                keyset_data.push(mask);
-                send(
-                    ManagementRequest::TableRemove(TableRemove {
-                        table: ROUTER_V4_RT.into(),
-                        keyset_data,
-                    }),
-                    &cli,
-                )
-                .await;
+                for ttl in [0u8, 1u8] {
+                    let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+                    keyset_data.push(ttl);
+                    send(
+                        ManagementRequest::TableRemove(TableRemove {
+                            table: ROUTER_V4_RT.into(),
+                            keyset_data,
+                        }),
+                        &cli,
+                    )
+                    .await;
+                }
             }
         }
 
@@ -394,7 +412,8 @@ async fn main() {
             let idx = table.find_available();
 
             // Add idx->route to the route table
-            let keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+            let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+            keyset_data.push(0);
 
             let mut parameter_data = port.to_le_bytes().to_vec();
             let mut nexthop_data: Vec<u8> = nexthop.octets().into();
@@ -407,6 +426,21 @@ async fn main() {
                     action: "forward".into(),
                     keyset_data,
                     parameter_data,
+                }),
+                &cli,
+            )
+            .await;
+
+            // Add ttl==1 entry to drop.
+            let mut ttl_keyset_data = idx.to_le_bytes().to_vec();
+            ttl_keyset_data.push(1);
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: ROUTER_V6_RT.into(),
+                    action: "ttl_exceeded".into(),
+                    keyset_data: ttl_keyset_data,
+                    parameter_data: Vec::new(),
                 }),
                 &cli,
             )
@@ -448,16 +482,18 @@ async fn main() {
                 .await;
 
                 // Remove the entry from the idx->route table table
-                let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
-                keyset_data.push(mask);
-                send(
-                    ManagementRequest::TableRemove(TableRemove {
-                        table: ROUTER_V6_RT.into(),
-                        keyset_data,
-                    }),
-                    &cli,
-                )
-                .await;
+                for ttl in [0u8, 1u8] {
+                    let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+                    keyset_data.push(ttl);
+                    send(
+                        ManagementRequest::TableRemove(TableRemove {
+                            table: ROUTER_V6_RT.into(),
+                            keyset_data,
+                        }),
+                        &cli,
+                    )
+                    .await;
+                }
             }
         }
 
@@ -1110,14 +1146,16 @@ fn get_addr(data: &[u8], rev: bool) -> Option<IpAddr> {
     }
 }
 
+/// Extract a u16 from the first two bytes of `data`. Ignores trailing
+/// bytes so this works on compound keys (e.g. path_idx + route_ttl_is_1).
 fn get_u16(data: &[u8]) -> Option<u16> {
-    match data.len() {
-        2 => Some(u16::from_le_bytes([data[0], data[1]])),
-        _ => {
-            println!("expected u16, found: {data:x?}");
+    data.get(..2)
+        .and_then(|s| s.try_into().ok())
+        .map(u16::from_le_bytes)
+        .or_else(|| {
+            println!("expected at least 2 bytes for u16, found: {data:x?}");
             None
-        }
-    }
+        })
 }
 
 fn get_mac(data: &[u8]) -> Option<[u8; 6]> {
