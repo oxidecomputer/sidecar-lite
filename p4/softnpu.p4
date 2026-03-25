@@ -1,4 +1,4 @@
-// Copyright 2022 Oxide Computer Company
+// Copyright 2026 Oxide Computer Company
 
 #include <headers.p4>
 
@@ -11,6 +11,8 @@ struct ingress_metadata_t {
     bit<16> path_idx;
     bool forward_needed;
     bool lldp;
+    bit<1> route_ttl_is_1;
+    bool allow_source_mcast;
 
     // Used as mutable scratchpad shared between parser states.
     bit<6> geneve_chunks;
@@ -24,8 +26,20 @@ struct egress_metadata_t {
     bit<12> vlan_id;
     bool drop;
     bool broadcast;
+    // Merged replication bitmap.
+    //
+    // We keep this as separate fields (rather than
+    // inlining external_bitmap | underlay_bitmap in the Replicate call)
+    // so the post-suppression state is inspectable.
+    bit<128> port_bitmap;
+    bit<128> external_bitmap;
+    bit<128> underlay_bitmap;
 }
 
 extern Checksum {
     bit<16> run<T>(in T data);
+}
+
+extern Replicate {
+    void replicate(in bit<128> bitmap);
 }

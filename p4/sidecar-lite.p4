@@ -1,4 +1,4 @@
-// Copyright 2025 Oxide Computer Company
+// Copyright 2026 Oxide Computer Company
 
 #include <core.p4>
 #include <softnpu.p4>
@@ -16,13 +16,15 @@ control ingress(
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
-    attached()      attached;
-    local()         local;
-    router()        router;
-    nat_ingress()   nat;
-    resolver()      resolver;
-    mac_rewrite()   mac;
-    proxy_arp()     pxarp;
+    attached()           attached;
+    local()              local;
+    router()             router;
+    nat_ingress()        nat;
+    resolver()           resolver;
+    mac_rewrite()        mac;
+    proxy_arp()          pxarp;
+    mcast_ingress()      mcast;
+    Replicate()          mcast_rep;
 
     apply {
         //
@@ -61,9 +63,11 @@ control ingress(
         //
         // After local and NAT processing, basic packet forwarding happens.
         //
-        router.apply(hdr, ingress, egress); // router table lookups
-        resolver.apply(hdr, egress);        // resolve the nexthop
-        mac.apply(hdr, egress);             // source mac rewrite
+        router.apply(hdr, ingress, egress);
+        mcast.apply(hdr, ingress, egress);
+        mcast_rep.replicate(egress.port_bitmap);
+        resolver.apply(hdr, egress);
+        mac.apply(hdr, egress);
 
         // Prevent reflection.
         if (ingress.port == egress.port) { egress.drop = true; }
@@ -377,8 +381,11 @@ control router_v4_route(
     inout egress_metadata_t egress,
 ) {
     table rtr {
-        key = { ingress.path_idx: exact; }
-        actions = { forward; forward_v6; forward_vlan; forward_vlan_v6; }
+        key = {
+            ingress.path_idx: exact;
+            ingress.route_ttl_is_1: exact;
+        }
+        actions = { forward; forward_v6; forward_vlan; forward_vlan_v6; ttl_exceeded; }
         // should never happen, but the compiler requires a default
         default_action = drop;
     }
@@ -386,6 +393,7 @@ control router_v4_route(
     apply { rtr.apply(); }
 
     action drop() { egress.drop = true; }
+    action ttl_exceeded() { egress.drop = true; }
 
     action forward(bit<16> port, bit<32> nexthop) {
         egress.port = port;
@@ -451,8 +459,11 @@ control router_v6_route(
     inout egress_metadata_t egress,
 ) {
     table rtr {
-        key = { ingress.path_idx: exact; }
-        actions = { forward; forward_vlan; }
+        key = {
+            ingress.path_idx: exact;
+            ingress.route_ttl_is_1: exact;
+        }
+        actions = { forward; forward_vlan; ttl_exceeded; }
         // should never happen, but the compiler requires a default
         default_action = drop;
     }
@@ -460,6 +471,7 @@ control router_v6_route(
     apply { rtr.apply(); }
 
     action drop() { egress.drop = true; }
+    action ttl_exceeded() { egress.drop = true; }
 
     action forward(bit<16> port, bit<128> nexthop) {
         egress.port = port;
@@ -520,11 +532,13 @@ control router(
         if (hdr.ipv4.isValid()) {
             v4_idx.apply(hdr.ipv4.dst, hdr.ipv4.src, ingress, egress);
             if (egress.drop == true) { return; }
+            if (hdr.ipv4.ttl == 8w1) { ingress.route_ttl_is_1 = 1w1; }
             v4_route.apply(ingress, egress);
         }
         if (hdr.ipv6.isValid()) {
             v6_idx.apply(hdr.ipv6.dst, hdr.ipv6.src, ingress, egress);
             if (egress.drop == true) { return; }
+            if (hdr.ipv6.hop_limit == 8w1) { ingress.route_ttl_is_1 = 1w1; }
             v6_route.apply(ingress, egress);
         }
         outport = egress.port;
@@ -583,9 +597,266 @@ control proxy_arp(
     }
 }
 
+control mcast_ingress(
+    inout headers_t hdr,
+    inout ingress_metadata_t ingress,
+    inout egress_metadata_t egress,
+) {
+    table mcast_replication_v6 {
+        key = { hdr.ipv6.dst: exact; }
+        actions = { set_port_bitmap; }
+        default_action = NoAction;
+    }
+
+    table mcast_replication_v4 {
+        key = { hdr.ipv4.dst: exact; }
+        actions = { set_port_bitmap; }
+        default_action = NoAction;
+    }
+
+    table mcast_source_filter_v4 {
+        key = {
+            hdr.inner_ipv4.src: lpm;
+            hdr.inner_ipv4.dst: exact;
+        }
+        actions = { allow_source; }
+        default_action = NoAction;
+    }
+
+    table mcast_source_filter_v6 {
+        key = {
+            hdr.inner_ipv6.src: lpm;
+            hdr.inner_ipv6.dst: exact;
+        }
+        actions = { allow_source; }
+        default_action = NoAction;
+    }
+
+    apply {
+        // Source filtering for geneve-encapsulated multicast traffic.
+        //
+        // Check inner destination is a multicast address before applying
+        // the source filter table.
+        if (hdr.geneve.isValid()) {
+            if (hdr.inner_ipv4.isValid()) {
+                // 224.0.0.0/4
+                if (hdr.inner_ipv4.dst[31:28] == 4w0xe) {
+                    mcast_source_filter_v4.apply();
+                } else {
+                    ingress.allow_source_mcast = true;
+                }
+            } else if (hdr.inner_ipv6.isValid()) {
+                // ff00::/8
+                if (hdr.inner_ipv6.dst[127:120] == 8w0xff) {
+                    mcast_source_filter_v6.apply();
+                } else {
+                    ingress.allow_source_mcast = true;
+                }
+            }
+        } else {
+            // Non-encapsulated traffic skips source filtering.
+            ingress.allow_source_mcast = true;
+        }
+
+        // Replication only proceeds if source filtering passed.
+        if (ingress.allow_source_mcast) {
+            if (hdr.ipv6.isValid()) { mcast_replication_v6.apply(); }
+            if (hdr.ipv4.isValid()) { mcast_replication_v4.apply(); }
+        }
+
+        // Per-packet tag suppression. If the packet carries a geneve
+        // multicast option, zero the bitmap for the group that has
+        // already been served:
+        //   0 (external)  -> suppress bitmap_b (underlay)
+        //   1 (underlay)  -> suppress bitmap_a (external)
+        //   2 (both)      -> neither suppressed
+        if (hdr.oxg_mcast.isValid()) {
+            if (hdr.oxg_mcast.mcast_tag == 2w0) {
+                egress.underlay_bitmap = 128w0;
+            }
+            if (hdr.oxg_mcast.mcast_tag == 2w1) {
+                egress.external_bitmap = 128w0;
+            }
+        }
+
+        // Merge both bitmaps into the final replication bitmap.
+        egress.port_bitmap = egress.external_bitmap | egress.underlay_bitmap;
+    }
+
+    action set_port_bitmap(bit<128> external, bit<128> underlay) {
+        egress.external_bitmap = external;
+        egress.underlay_bitmap = underlay;
+    }
+
+    action allow_source() {
+        ingress.allow_source_mcast = true;
+    }
+}
 
 control egress(
     inout headers_t hdr,
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
-) { }
+) {
+    // Per-port decapsulation for multicast replicated copies.
+    //
+    // Ports in this table receive decapsulated (customer-facing) traffic.
+    // Ports not in the table keep encapsulation intact (sled-bound,
+    // OPTE handles decap). Equivalent to DPD's tbl_decap_ports.
+    table mcast_egress_decap {
+        key = { egress.port: exact; }
+        actions = { decap; decap_vlan; }
+        default_action = NoAction;
+    }
+
+    // Source MAC rewrite per egress port. Runs on every replicated
+    // copy so both encapsulated and decapsulated packets leave with
+    // the correct source MAC for the egress port.
+    table mcast_src_mac {
+        key = { egress.port: exact; }
+        actions = { rewrite_src_mac; }
+        default_action = NoAction;
+    }
+
+    action rewrite_src_mac(bit<48> mac) { hdr.ethernet.src = mac; }
+
+    apply {
+        // Validate that the packet is actually multicast by checking
+        // the outer IP destination range before applying any multicast-specific
+        // egress processing.
+        bool is_mcast_pkt = false;
+
+        if (hdr.ipv6.isValid()) {
+            // ff00::/8
+            if (hdr.ipv6.dst[127:120] == 8w0xff) { is_mcast_pkt = true; }
+        }
+        if (hdr.ipv4.isValid()) {
+            // 224.0.0.0/4
+            if (hdr.ipv4.dst[31:28] == 4w0xe) { is_mcast_pkt = true; }
+        }
+
+        if (is_mcast_pkt == false) { return; }
+
+        // Per-port decap only for UNDERLAY_EXTERNAL (tag=2) replicas
+        // on the reserved underlay multicast subnet (ff04::/64),
+        // matching Dendrite's egress mcast_tag_check. Tag=0 and tag=1
+        // copies pass through without decap consideration.
+        if (hdr.ipv6.isValid()) {
+            if (hdr.ipv6.dst[127:64] == 64w0xff04000000000000) {
+                if (hdr.geneve.isValid()) {
+                    if (hdr.oxg_mcast.isValid()) {
+                        if (hdr.oxg_mcast.mcast_tag == 2w2) {
+                            mcast_egress_decap.apply();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Derive multicast dst MAC from the IP destination
+        // (RFC 1112 section 6.4 for IPv4, RFC 2464 for IPv6).
+        // Encapsulated copies use the outer IP. Decapped copies
+        // use the inner IP (outer is stripped).
+        if (hdr.ipv6.isValid()) {
+            hdr.ethernet.dst[47:32] = 16w0x3333;
+            hdr.ethernet.dst[31:0] = hdr.ipv6.dst[31:0];
+        }
+        if (hdr.ipv4.isValid()) {
+            hdr.ethernet.dst[47:24] = 24w0x01005e;
+            hdr.ethernet.dst[23:16] = hdr.ipv4.dst[23:16];
+            hdr.ethernet.dst[15:0] = hdr.ipv4.dst[15:0];
+            hdr.ethernet.dst[23:23] = 1w0;
+        }
+        if (hdr.geneve.isValid() == false) {
+            if (hdr.inner_ipv4.isValid()) {
+                hdr.ethernet.dst[47:24] = 24w0x01005e;
+                hdr.ethernet.dst[23:16] = hdr.inner_ipv4.dst[23:16];
+                hdr.ethernet.dst[15:0] = hdr.inner_ipv4.dst[15:0];
+                hdr.ethernet.dst[23:23] = 1w0;
+            }
+            if (hdr.inner_ipv6.isValid()) {
+                hdr.ethernet.dst[47:32] = 16w0x3333;
+                hdr.ethernet.dst[31:0] = hdr.inner_ipv6.dst[31:0];
+            }
+        }
+
+        // Rewrite source MAC for the egress port.
+        mcast_src_mac.apply();
+    }
+
+    action decap() {
+        strip_decap();
+        hdr.vlan.setInvalid();
+    }
+
+    action decap_vlan(bit<12> vlan_id) {
+        strip_decap();
+        hdr.vlan.setValid();
+        hdr.vlan.pcp = 3w0;
+        hdr.vlan.dei = 1w0;
+        hdr.vlan.vid = vlan_id;
+        // Inner ethertype moves into VLAN header.
+        hdr.vlan.ether_type = hdr.ethernet.ether_type;
+        hdr.ethernet.ether_type = 16w0x8100;
+    }
+
+    // Shared decap: validate and decrement inner TTL, restore inner
+    // ethernet header, and strip outer headers.
+    //
+    // Sets egress.drop on expired TTL. Callers still run but the
+    // packet is dropped before emission.
+    action strip_decap() {
+        // Drop expired inner packets instead of wrapping TTL/hop_limit.
+        if (hdr.inner_ipv4.isValid()) {
+            if (hdr.inner_ipv4.ttl == 8w0) { egress.drop = true; }
+            if (hdr.inner_ipv4.ttl == 8w1) { egress.drop = true; }
+            if (egress.drop == false) {
+                hdr.inner_ipv4.ttl = hdr.inner_ipv4.ttl - 8w1;
+                // Incremental IPv4 header checksum update (RFC 1624).
+                // TTL occupies the high byte of a 16-bit word, so
+                // decrementing TTL by 1 adds 0x0100. Detect overflow
+                // and fold the carry for ones-complement correctness.
+                bit<16> old_csum = hdr.inner_ipv4.hdr_checksum;
+                bit<16> new_csum = old_csum + 16w0x0100;
+                if (new_csum < old_csum) {
+                    new_csum = new_csum + 16w1;
+                }
+                hdr.inner_ipv4.hdr_checksum = new_csum;
+            }
+        }
+
+        if (hdr.inner_ipv6.isValid()) {
+            if (hdr.inner_ipv6.hop_limit == 8w0) { egress.drop = true; }
+            if (hdr.inner_ipv6.hop_limit == 8w1) { egress.drop = true; }
+            if (egress.drop == false) {
+                hdr.inner_ipv6.hop_limit = hdr.inner_ipv6.hop_limit - 8w1;
+            }
+        }
+
+        if (egress.drop == true) { return; }
+
+        // Restore inner ethernet header, then strip encapsulation.
+        hdr.ethernet = hdr.inner_eth;
+        hdr.inner_eth.setInvalid();
+
+        // Set ethertype based on inner IP version.
+        if (hdr.inner_ipv4.isValid()) {
+            hdr.ethernet.ether_type = 16w0x0800;
+        }
+        if (hdr.inner_ipv6.isValid()) {
+            hdr.ethernet.ether_type = 16w0x86dd;
+        }
+
+        // Strip outer headers.
+        hdr.ipv6.setInvalid();
+        hdr.ipv4.setInvalid();
+        hdr.udp.setInvalid();
+        hdr.tcp.setInvalid();
+        hdr.geneve.setInvalid();
+        hdr.oxg_external_tag.setInvalid();
+        hdr.oxg_mcast_tag.setInvalid();
+        hdr.oxg_mcast.setInvalid();
+        hdr.oxg_mss_tag.setInvalid();
+        hdr.oxg_mss.setInvalid();
+    }
+}
