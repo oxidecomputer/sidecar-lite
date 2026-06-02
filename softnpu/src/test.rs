@@ -19,6 +19,7 @@ use std::println;
 // Protocol constants.
 const ETHERTYPE_IPV4: u16 = 0x0800;
 const ETHERTYPE_IPV6: u16 = 0x86dd;
+const ETHERTYPE_VLAN: u16 = 0x8100;
 const ETHERTYPE_SIDECAR: u16 = 0x0901;
 const GENEVE_UDP_PORT: u16 = 6081;
 const GENEVE_PROTO_ETH: u16 = 0x6558;
@@ -1109,6 +1110,214 @@ fn mcast_replication_basic() -> Result<(), anyhow::Error> {
         || phy2.recv_buffer_len() > 0,
         "port 2 mcast copy (underlay)",
     );
+
+    Ok(())
+}
+
+// Assert a received frame payload is a geneve-over-IPv6 packet encapsulated
+// toward `target` carrying `vni`, i.e. the end-user multicast packet was
+// NAT-encapsulated to its underlay group.
+fn assert_nat_encap(payload: &[u8], target: &str, vni: u32) {
+    let ip = Ipv6Packet::new(payload).expect("outer IPv6 header");
+    assert_eq!(
+        ip.get_destination(),
+        target.parse::<Ipv6Addr>().unwrap(),
+        "encapsulated toward the wrong underlay target",
+    );
+    let udp = UdpPacket::new(ip.payload()).expect("outer UDP header");
+    assert_eq!(udp.get_source(), GENEVE_UDP_PORT);
+    assert_eq!(udp.get_destination(), GENEVE_UDP_PORT);
+    let geneve = GenevePacket::new(udp.payload()).expect("geneve header");
+    assert_eq!(geneve.get_protocol_type(), GENEVE_PROTO_ETH);
+    assert_eq!(geneve.get_vni(), vni, "Received wrong geneve VNI");
+}
+
+// An untagged IPv4 end-user multicast packet hits `nat_v4_mcast_untagged` and
+// is NAT-encapsulated toward its underlay group (here the fd00:1::/64 route
+// stands in for the underlay target).
+#[test]
+fn mcast_nat_v4_untagged() -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(2);
+    pipeline_init(&mut pipeline);
+
+    let (key_buf, param_buf) = nat_mcast_v4_untagged_entry(
+        "224.1.1.1",
+        "fd00:1::1",
+        4444,
+        [0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a],
+    );
+    pipeline.add_ingress_nat_nat_v4_mcast_untagged_entry(
+        "forward_to_sled",
+        &key_buf,
+        &param_buf,
+        0,
+    );
+
+    let mut npu = SoftNpu::new(2, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+    npu.run();
+
+    let ip_data = ipv4_mcast_l3("10.0.0.1", "224.1.1.1");
+    phy1.send(&[TxFrame::new(phy0.mac, ETHERTYPE_IPV4, &ip_data)])?;
+
+    wait_for(|| phy0.recv_buffer_len() > 0, "NAT-encapped mcast packet");
+    let fs = phy0.recv();
+    assert_nat_encap(&fs[0].payload, "fd00:1::1", 4444);
+
+    Ok(())
+}
+
+// A VLAN-tagged IPv4 end-user multicast packet hits `nat_v4_mcast` on the
+// matching (dst, vid) key and is NAT-encapsulated.
+#[test]
+fn mcast_nat_v4_tagged() -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(2);
+    pipeline_init(&mut pipeline);
+
+    let (key_buf, param_buf) = nat_mcast_v4_entry(
+        "224.2.2.2",
+        10,
+        "fd00:1::1",
+        5555,
+        [0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a],
+    );
+    pipeline.add_ingress_nat_nat_v4_mcast_entry(
+        "forward_to_sled",
+        &key_buf,
+        &param_buf,
+        0,
+    );
+
+    let mut npu = SoftNpu::new(2, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+    npu.run();
+
+    let l3 = ipv4_mcast_l3("10.0.0.1", "224.2.2.2");
+    let frame = vlan_tagged(10, ETHERTYPE_IPV4, &l3);
+    phy1.send(&[TxFrame::new(phy0.mac, ETHERTYPE_VLAN, &frame)])?;
+
+    wait_for(|| phy0.recv_buffer_len() > 0, "NAT-encapped mcast packet");
+    let fs = phy0.recv();
+    assert_nat_encap(&fs[0].payload, "fd00:1::1", 5555);
+
+    Ok(())
+}
+
+// A VLAN-tagged packet whose VLAN does not match the programmed group misses
+// `nat_v4_mcast` and is not NAT-encapsulated to the wrong underlay group.
+#[test]
+fn mcast_nat_v4_wrong_vlan_miss() -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(2);
+    pipeline_init(&mut pipeline);
+
+    let (key_buf, param_buf) = nat_mcast_v4_entry(
+        "224.3.3.3",
+        10,
+        "fd00:1::1",
+        5555,
+        [0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a],
+    );
+    pipeline.add_ingress_nat_nat_v4_mcast_entry(
+        "forward_to_sled",
+        &key_buf,
+        &param_buf,
+        0,
+    );
+
+    let mut npu = SoftNpu::new(2, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+    npu.run();
+
+    // Group programmed on VLAN 10, packet arrives on VLAN 20.
+    let l3 = ipv4_mcast_l3("10.0.0.1", "224.3.3.3");
+    let frame = vlan_tagged(20, ETHERTYPE_IPV4, &l3);
+    phy1.send(&[TxFrame::new(phy0.mac, ETHERTYPE_VLAN, &frame)])?;
+
+    // A sentinel routed to port 1 confirms the pipeline drained, as the
+    // mismatched packet would have egressed port 0 had it been
+    // truly NAT-encapsulated.
+    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV4, &sentinel_v4())])?;
+    wait_for(|| phy1.recv_buffer_len() > 0, "sentinel to drain pipeline");
+    assert_eq!(
+        phy0.recv_buffer_len(),
+        0,
+        "wrong-VLAN multicast packet was NAT-encapsulated",
+    );
+
+    Ok(())
+}
+
+// An untagged IPv6 end-user multicast packet hits `nat_v6_mcast_untagged` and
+// is NAT-encapsulated toward its underlay group.
+#[test]
+fn mcast_nat_v6_untagged() -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(2);
+    pipeline_init(&mut pipeline);
+
+    let (key_buf, param_buf) = nat_mcast_v6_untagged_entry(
+        "ff0e::1",
+        "fd00:1::1",
+        6666,
+        [0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a],
+    );
+    pipeline.add_ingress_nat_nat_v6_mcast_untagged_entry(
+        "forward_to_sled",
+        &key_buf,
+        &param_buf,
+        0,
+    );
+
+    let mut npu = SoftNpu::new(2, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+    npu.run();
+
+    let ip_data = ipv6_mcast_l3("fd00:2::1", "ff0e::1");
+    phy1.send(&[TxFrame::new(phy0.mac, ETHERTYPE_IPV6, &ip_data)])?;
+
+    wait_for(|| phy0.recv_buffer_len() > 0, "NAT-encapped mcast packet");
+    let fs = phy0.recv();
+    assert_nat_encap(&fs[0].payload, "fd00:1::1", 6666);
+
+    Ok(())
+}
+
+// A VLAN-tagged IPv6 end-user multicast packet hits `nat_v6_mcast` on the
+// matching (dst, vid) key and is NAT-encapsulated.
+#[test]
+fn mcast_nat_v6_tagged() -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(2);
+    pipeline_init(&mut pipeline);
+
+    let (key_buf, param_buf) = nat_mcast_v6_entry(
+        "ff0e::2",
+        10,
+        "fd00:1::1",
+        7000,
+        [0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a],
+    );
+    pipeline.add_ingress_nat_nat_v6_mcast_entry(
+        "forward_to_sled",
+        &key_buf,
+        &param_buf,
+        0,
+    );
+
+    let mut npu = SoftNpu::new(2, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+    npu.run();
+
+    let l3 = ipv6_mcast_l3("fd00:2::1", "ff0e::2");
+    let frame = vlan_tagged(10, ETHERTYPE_IPV6, &l3);
+    phy1.send(&[TxFrame::new(phy0.mac, ETHERTYPE_VLAN, &frame)])?;
+
+    wait_for(|| phy0.recv_buffer_len() > 0, "NAT-encapped mcast packet");
+    let fs = phy0.recv();
+    assert_nat_encap(&fs[0].payload, "fd00:1::1", 7000);
 
     Ok(())
 }
@@ -2875,14 +3084,15 @@ fn mcast_suppression_drops_when_only_group_zeroed() -> Result<(), anyhow::Error>
     phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV4, &sentinel)])?;
 
     // Wait for the sentinel to arrive at port 1, then check mcast ports.
-    // Port 1 receives 2 frames: the mcast packet unicast-routed via the
-    // router table (bitmap merged to 0, no replication) plus the sentinel.
-    // The key assertion is that port 2 (underlay) receives nothing.
+    // The fully-suppressed multicast packet is dropped, not leaked: with
+    // the unicast/multicast bifurcation it never enters the unicast router,
+    // so an empty merged bitmap yields zero copies. Port 1 therefore
+    // receives only the sentinel, and port 2 (underlay) receives nothing.
     wait_for(|| phy1.recv_buffer_len() > 0, "sentinel on port 1");
     assert_eq!(
         phy1.recv_buffer_len(),
-        2,
-        "unicast-routed mcast packet + sentinel on port 1"
+        1,
+        "only the sentinel reaches port 1; the suppressed mcast packet is dropped"
     );
     assert_eq!(
         phy2.recv_buffer_len(),
@@ -2970,6 +3180,119 @@ fn nat4_entry(
     param_buf.extend_from_slice(&mac);
 
     (key_buf, param_buf)
+}
+
+// `forward_to_sled(target, vni, mac)` action parameter buffer, which is shared
+// by the unicast and multicast NAT tables. `target` is the underlay group the
+// end-user packet is NAT-encapsulated toward.
+fn forward_to_sled_param(target: &str, vni: u32, mac: [u8; 6]) -> Vec<u8> {
+    let target: Ipv6Addr = target.parse().unwrap();
+    let mut param = target.octets().to_vec();
+    param.reverse();
+    param.extend_from_slice(&vni.to_le_bytes()[..3]);
+    param.extend_from_slice(&mac);
+    param
+}
+
+// `nat_v4_mcast` entry, keyed by (ipv4.dst, vlan.vid).
+fn nat_mcast_v4_entry(
+    dst: &str,
+    vid: u16,
+    target: &str,
+    vni: u32,
+    mac: [u8; 6],
+) -> (Vec<u8>, Vec<u8>) {
+    let dst: Ipv4Addr = dst.parse().unwrap();
+    let mut key_buf = dst.octets().to_vec();
+    key_buf.reverse();
+    key_buf.extend_from_slice(&vid.to_le_bytes());
+    (key_buf, forward_to_sled_param(target, vni, mac))
+}
+
+// `nat_v4_mcast_untagged` entry, keyed by (ipv4.dst).
+fn nat_mcast_v4_untagged_entry(
+    dst: &str,
+    target: &str,
+    vni: u32,
+    mac: [u8; 6],
+) -> (Vec<u8>, Vec<u8>) {
+    let dst: Ipv4Addr = dst.parse().unwrap();
+    let mut key_buf = dst.octets().to_vec();
+    key_buf.reverse();
+    (key_buf, forward_to_sled_param(target, vni, mac))
+}
+
+// `nat_v6_mcast` entry, keyed on (ipv6.dst, vlan.vid).
+fn nat_mcast_v6_entry(
+    dst: &str,
+    vid: u16,
+    target: &str,
+    vni: u32,
+    mac: [u8; 6],
+) -> (Vec<u8>, Vec<u8>) {
+    let dst: Ipv6Addr = dst.parse().unwrap();
+    let mut key_buf = dst.octets().to_vec();
+    key_buf.reverse();
+    key_buf.extend_from_slice(&vid.to_le_bytes());
+    (key_buf, forward_to_sled_param(target, vni, mac))
+}
+
+// `nat_v6_mcast_untagged` entry, which is keyed on (ipv6.dst).
+fn nat_mcast_v6_untagged_entry(
+    dst: &str,
+    target: &str,
+    vni: u32,
+    mac: [u8; 6],
+) -> (Vec<u8>, Vec<u8>) {
+    let dst: Ipv6Addr = dst.parse().unwrap();
+    let mut key_buf = dst.octets().to_vec();
+    key_buf.reverse();
+    (key_buf, forward_to_sled_param(target, vni, mac))
+}
+
+// 802.1Q tag bytes: TCI (pcp=0, dei=0, vid) followed by the encapsulated
+// ether_type, prepended to an L3 payload behind an 0x8100 ethernet frame.
+fn vlan_tagged(vid: u16, inner_ethertype: u16, l3: &[u8]) -> Vec<u8> {
+    let tci = vid & 0x0fff;
+    let mut buf = Vec::with_capacity(4 + l3.len());
+    buf.extend_from_slice(&tci.to_be_bytes());
+    buf.extend_from_slice(&inner_ethertype.to_be_bytes());
+    buf.extend_from_slice(l3);
+    buf
+}
+
+// Plain (no-geneve) IPv4 multicast packet for exercising the NAT-ingress
+// multicast tables. TTL defaults high enough to clear the parser's RFC 1112
+// expiry check.
+fn ipv4_mcast_l3(src: &str, dst: &str) -> Vec<u8> {
+    let payload = [0u8; 8];
+    let mut ip_data = vec![0u8; 20 + payload.len()];
+    let mut ip = MutableIpv4Packet::new(&mut ip_data).unwrap();
+    ip.set_version(4);
+    ip.set_header_length(5);
+    ip.set_source(src.parse().unwrap());
+    ip.set_destination(dst.parse().unwrap());
+    ip.set_total_length(20 + payload.len() as u16);
+    ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
+    ip.set_ttl(64);
+    ip.set_payload(&payload);
+    ip_data
+}
+
+// Plain (no-geneve) IPv6 multicast packet for the NAT-ingress multicast
+// tables. hop_limit clears the parser's non-link-local expiry check.
+fn ipv6_mcast_l3(src: &str, dst: &str) -> Vec<u8> {
+    let payload = [0u8; 8];
+    let mut ip_data = vec![0u8; 40 + payload.len()];
+    let mut ip = MutableIpv6Packet::new(&mut ip_data).unwrap();
+    ip.set_version(6);
+    ip.set_source(src.parse().unwrap());
+    ip.set_destination(dst.parse().unwrap());
+    ip.set_payload_length(payload.len() as u16);
+    ip.set_next_header(IpNextHeaderProtocol::new(17));
+    ip.set_hop_limit(64);
+    ip.set_payload(&payload);
+    ip_data
 }
 
 fn local6_entry(addr: &str) -> (Vec<u8>, Vec<u8>) {

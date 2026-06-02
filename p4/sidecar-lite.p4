@@ -63,14 +63,44 @@ control ingress(
         //
         // After local and NAT processing, basic packet forwarding happens.
         //
-        router.apply(hdr, ingress, egress);
-        mcast.apply(hdr, ingress, egress);
-        mcast_rep.replicate(egress.port_bitmap);
-        resolver.apply(hdr, egress);
-        mac.apply(hdr, egress);
+        // Unicast and multicast are bifurcated, mirroring dendrite's
+        // sidecar.p4 (the meta.is_mcast gate). Multicast traffic is
+        // replicated and never consults the unicast nexthop resolver,
+        // whose default_action is drop. Replica destination and source
+        // MACs are derived in the egress control instead. Link-local
+        // multicast (ff02::/16) is already handled by the local path
+        // above, and expired or interface-local multicast is rejected in
+        // the parser, so neither reaches here.
+        bool is_mcast = false;
+        if (hdr.ipv6.isValid()) {
+            if (hdr.ipv6.dst[127:120] == 8w0xff) { is_mcast = true; }
+        }
+        if (hdr.ipv4.isValid()) {
+            if (hdr.ipv4.dst[31:28] == 4w0xe) { is_mcast = true; }
+        }
 
-        // Prevent reflection.
-        if (ingress.port == egress.port) { egress.drop = true; }
+        if (is_mcast) {
+            mcast.apply(hdr, ingress, egress);
+            // An empty bitmap means no multicast group is configured, so
+            // we drop rather than leak the packet through. This mirrors
+            // dendrite's MulticastRouter table miss, which also drops,
+            // though sidecar-lite drops silently rather than emitting an
+            // ICMP unreachable.
+            if (egress.port_bitmap == 128w0) {
+                egress.drop = true;
+            } else {
+                mcast_rep.replicate(egress.port_bitmap);
+            }
+        } else {
+            router.apply(hdr, ingress, egress);
+            resolver.apply(hdr, egress);
+            mac.apply(hdr, egress);
+
+            // Prevent reflection. Multicast ingress-port suppression is
+            // handled in the replication bitmap, so this applies to
+            // unicast only.
+            if (ingress.port == egress.port) { egress.drop = true; }
+        }
     }
 
     action decap_geneve() {
@@ -163,10 +193,77 @@ control nat_ingress(
         default_action = NoAction;
     }
 
+    // Multicast NAT tables.
+    //
+    // These are keyed on destination address and VLAN ID.
+    //
+    // Packets with a mismatched VLAN miss the table and are not NAT'd
+    // to the wrong underlay group. VLAN header validity is checked
+    // inline in the apply block since x4c does not support isValid()
+    // as a table key field.
+    table nat_v4_mcast {
+        key = {
+            hdr.ipv4.dst:   exact;
+            hdr.vlan.vid:   exact;
+        }
+        actions = { forward_to_sled; }
+        default_action = NoAction;
+    }
+
+    table nat_v6_mcast {
+        key = {
+            hdr.ipv6.dst:   exact;
+            hdr.vlan.vid:   exact;
+        }
+        actions = { forward_to_sled; }
+        default_action = NoAction;
+    }
+
+    // Multicast NAT tables for untagged traffic.
+    table nat_v4_mcast_untagged {
+        key = {
+            hdr.ipv4.dst:   exact;
+        }
+        actions = { forward_to_sled; }
+        default_action = NoAction;
+    }
+
+    table nat_v6_mcast_untagged {
+        key = {
+            hdr.ipv6.dst:   exact;
+        }
+        actions = { forward_to_sled; }
+        default_action = NoAction;
+    }
+
     apply {
         if (ingress.forward_needed == false) {
-            if (hdr.ipv4.isValid()) { nat_v4.apply(); }
-            if (hdr.ipv6.isValid()) { nat_v6.apply(); }
+            if (hdr.ipv4.isValid()) {
+                // High nibble 0xe (0b1110) is the 224.0.0.0/4 multicast
+                // range. Anything else is unicast and falls to nat_v4.
+                if (hdr.ipv4.dst[31:28] == 4w0xe) {
+                    if (hdr.vlan.isValid()) {
+                        nat_v4_mcast.apply();
+                    } else {
+                        nat_v4_mcast_untagged.apply();
+                    }
+                } else {
+                    nat_v4.apply();
+                }
+            }
+            if (hdr.ipv6.isValid()) {
+                // High octet 0xff is the ff00::/8 multicast range.
+                // Anything else is unicast and falls to nat_v6.
+                if (hdr.ipv6.dst[127:120] == 8w0xff) {
+                    if (hdr.vlan.isValid()) {
+                        nat_v6_mcast.apply();
+                    } else {
+                        nat_v6_mcast_untagged.apply();
+                    }
+                } else {
+                    nat_v6.apply();
+                }
+            }
         }
         if (ingress.forward_needed == true) {
             forward_packet();

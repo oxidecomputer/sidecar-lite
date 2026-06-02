@@ -937,6 +937,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
                 None => "?".into(),
             };
             println!("{idx} -> {gw}");
+        } else if e.action_id == "ttl_exceeded" {
+            println!("{idx} -> ttl_exceeded (drop)");
         } else {
             println!("unrecognized action: {}", e.action_id);
         }
@@ -974,6 +976,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
                 None => "?".into(),
             };
             println!("{idx} -> {gw}");
+        } else if e.action_id == "ttl_exceeded" {
+            println!("{idx} -> ttl_exceeded (drop)");
         } else {
             println!("unrecognized action: {}", e.action_id);
         }
