@@ -240,9 +240,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.62"
+version = "1.2.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1dce859f0832a7d088c4f1119888ab94ef4b5d6795d1ce05afb7fe159d79f98"
+checksum = "556e016178bb5662a08681bbe0f00f8e17631781a4dfc8c45e466e4b185ec27f"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -588,9 +588,9 @@ dependencies = [
 
 [[package]]
 name = "displaydoc"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
+checksum = "1ac70aa55017e108007fbaf5aa0f54b021c98f92ff8af59d42eda9da96e3dd4f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -600,7 +600,7 @@ dependencies = [
 [[package]]
 name = "dlpi"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#a611f32a2374579d25e628b395a9cb251f753388"
+source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#37a4abfd821ac5adaee280e112997fe169cc9902"
 dependencies = [
  "libc",
  "libdlpi-sys 0.1.0 (git+https://github.com/oxidecomputer/dlpi-sys?branch=main)",
@@ -613,7 +613,7 @@ dependencies = [
 [[package]]
 name = "dlpi"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys#a611f32a2374579d25e628b395a9cb251f753388"
+source = "git+https://github.com/oxidecomputer/dlpi-sys#37a4abfd821ac5adaee280e112997fe169cc9902"
 dependencies = [
  "libc",
  "libdlpi-sys 0.1.0 (git+https://github.com/oxidecomputer/dlpi-sys)",
@@ -639,14 +639,14 @@ dependencies = [
 [[package]]
 name = "dof"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/usdt#83c62451000ee0e5cfc51bbc2d7dfdac43b3f3a3"
+source = "git+https://github.com/oxidecomputer/usdt#93a779fa7dd3875950a21614e76fd1c7bcf674ce"
 dependencies = [
- "goblin 0.10.5",
+ "goblin 0.10.7",
  "pretty-hex",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
- "zerocopy 0.8.48",
+ "zerocopy 0.8.50",
 ]
 
 [[package]]
@@ -663,7 +663,7 @@ dependencies = [
 [[package]]
 name = "dtrace-parser"
 version = "0.3.0"
-source = "git+https://github.com/oxidecomputer/usdt#83c62451000ee0e5cfc51bbc2d7dfdac43b3f3a3"
+source = "git+https://github.com/oxidecomputer/usdt#93a779fa7dd3875950a21614e76fd1c7bcf674ce"
 dependencies = [
  "pest",
  "pest_derive",
@@ -1025,9 +1025,9 @@ dependencies = [
 
 [[package]]
 name = "goblin"
-version = "0.10.5"
+version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "983a6aafb3b12d4c41ea78d39e189af4298ce747353945ff5105b54a056e5cd9"
+checksum = "17582616a7718cca54cec18e534a76c7c4aec11a8b9a85695712f262fd15a4c8"
 dependencies = [
  "log",
  "plain",
@@ -1119,9 +1119,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.4.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3ba2a386d7f85a81f119ad7498ebe444d2e22c2af0b86b069416ace48b3311a"
+checksum = "8be7462df143984c4598a256ef469b251d7d7f9e271135073e78fc535414f3d0"
 dependencies = [
  "bytes",
  "itoa",
@@ -1158,9 +1158,9 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 
 [[package]]
 name = "hyper"
-version = "1.9.0"
+version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6299f016b246a94207e63da54dbe807655bf9e00044f73ded42c3ac5305fbcca"
+checksum = "55281c53a1894c864990125767da440a4e630446785086f52523b20033b74498"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -1503,12 +1503,12 @@ checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 [[package]]
 name = "libdlpi-sys"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#a611f32a2374579d25e628b395a9cb251f753388"
+source = "git+https://github.com/oxidecomputer/dlpi-sys?branch=main#37a4abfd821ac5adaee280e112997fe169cc9902"
 
 [[package]]
 name = "libdlpi-sys"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dlpi-sys#a611f32a2374579d25e628b395a9cb251f753388"
+source = "git+https://github.com/oxidecomputer/dlpi-sys#37a4abfd821ac5adaee280e112997fe169cc9902"
 
 [[package]]
 name = "libloading"
@@ -1529,7 +1529,7 @@ checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 [[package]]
 name = "libnet"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#ca2cb23e186d8f75dd1f206a7bbe9699758ab12d"
+source = "git+https://github.com/oxidecomputer/netadm-sys?branch=main#201992c327b69211c29f097cc767dc2801315fa3"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1561,9 +1561,9 @@ dependencies = [
 
 [[package]]
 name = "libz-sys"
-version = "1.1.28"
+version = "1.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc3a226e576f50782b3305c5ccf458698f92798987f551c6a02efe8276721e22"
+checksum = "85bc9657773828b90eeb625adff10eeac83cc21bbfd8e23a03eaa8a33c9e28d9"
 dependencies = [
  "cc",
  "libc",
@@ -1605,9 +1605,9 @@ source = "git+https://github.com/luqmana/rust-macaddr?branch=leading-zeros#f3396
 
 [[package]]
 name = "memchr"
-version = "2.8.0"
+version = "2.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
+checksum = "6b947ae49db0d222b1dbc6b113ce7248a3fc3a6ca21b696717bfc000ba4484d8"
 
 [[package]]
 name = "memmap"
@@ -1640,9 +1640,9 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50b7e5b27aa02a74bac8c3f23f448f8d87ff11f92d3aac1a6ed369ee08cc56c1"
+checksum = "02bd0af71c67b473010cbbc60715ee815645a4dc942899111f494b4b737d6fda"
 dependencies = [
  "libc",
  "wasi",
@@ -1939,7 +1939,7 @@ dependencies = [
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b1c31291d5eabb8027c4849ccf0a7c14a42044a2"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#4470a7704a06752edf816c4f6ffd236690538510"
 dependencies = [
  "colored",
  "regex",
@@ -1948,7 +1948,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b1c31291d5eabb8027c4849ccf0a7c14a42044a2"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#4470a7704a06752edf816c4f6ffd236690538510"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1961,7 +1961,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b1c31291d5eabb8027c4849ccf0a7c14a42044a2"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#4470a7704a06752edf816c4f6ffd236690538510"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1974,7 +1974,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b1c31291d5eabb8027c4849ccf0a7c14a42044a2"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#4470a7704a06752edf816c4f6ffd236690538510"
 dependencies = [
  "bitvec",
  "num",
@@ -1985,7 +1985,7 @@ dependencies = [
 [[package]]
 name = "p9ds"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p9fs?branch=main#04fb133ac730f6f69612dcb20d1cb2195e4e89a6"
+source = "git+https://github.com/oxidecomputer/p9fs?branch=main#0020894e66b7f98cb98987b4efd2f029dbc3598f"
 dependencies = [
  "ispf",
  "num_enum 0.5.11",
@@ -1997,7 +1997,7 @@ dependencies = [
 [[package]]
 name = "p9kp"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p9fs?branch=main#04fb133ac730f6f69612dcb20d1cb2195e4e89a6"
+source = "git+https://github.com/oxidecomputer/p9fs?branch=main#0020894e66b7f98cb98987b4efd2f029dbc3598f"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -2283,7 +2283,7 @@ version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
- "zerocopy 0.8.48",
+ "zerocopy 0.8.50",
 ]
 
 [[package]]
@@ -2327,7 +2327,7 @@ version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
 dependencies = [
- "toml_edit 0.25.11+spec-1.1.0",
+ "toml_edit 0.25.12+spec-1.1.0",
 ]
 
 [[package]]
@@ -2901,9 +2901,9 @@ dependencies = [
 
 [[package]]
 name = "shlex"
-version = "1.3.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "sidecar-lite"
@@ -3081,9 +3081,9 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.6.3"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
+checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
@@ -3092,7 +3092,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#a6095a9af983fe30a3426a16cb04fc8922d675a2"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#e1993c00d80605eec3a9087bd1cf25b22604e75a"
 dependencies = [
  "p4rs",
  "serde",
@@ -3103,7 +3103,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#a6095a9af983fe30a3426a16cb04fc8922d675a2"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#e1993c00d80605eec3a9087bd1cf25b22604e75a"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -3275,7 +3275,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#b1c31291d5eabb8027c4849ccf0a7c14a42044a2"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#4470a7704a06752edf816c4f6ffd236690538510"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -3499,9 +3499,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.25.11+spec-1.1.0"
+version = "0.25.12+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b59c4d22ed448339746c59b905d24568fcbb3ab65a500494f7b8c3e97739f2b"
+checksum = "d2153edc6955a6c354fad8f5efd38b6a8769bdccf9fe50f8e1329f81b0baa5d7"
 dependencies = [
  "indexmap 2.14.0",
  "toml_datetime 1.1.1+spec-1.1.0",
@@ -3612,9 +3612,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "typenum"
-version = "1.20.0"
+version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40ce102ab67701b8526c123c1bab5cbe42d7040ccfd0f64af1a385808d2f43de"
+checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "ucd-trie"
@@ -3684,10 +3684,10 @@ dependencies = [
 [[package]]
 name = "usdt"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#83c62451000ee0e5cfc51bbc2d7dfdac43b3f3a3"
+source = "git+https://github.com/oxidecomputer/usdt#93a779fa7dd3875950a21614e76fd1c7bcf674ce"
 dependencies = [
  "dof 0.4.0",
- "goblin 0.10.5",
+ "goblin 0.10.7",
  "memmap2",
  "serde",
  "usdt-attr-macro 0.6.0",
@@ -3712,7 +3712,7 @@ dependencies = [
 [[package]]
 name = "usdt-attr-macro"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#83c62451000ee0e5cfc51bbc2d7dfdac43b3f3a3"
+source = "git+https://github.com/oxidecomputer/usdt#93a779fa7dd3875950a21614e76fd1c7bcf674ce"
 dependencies = [
  "dtrace-parser 0.3.0",
  "proc-macro2",
@@ -3745,7 +3745,7 @@ dependencies = [
 [[package]]
 name = "usdt-impl"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#83c62451000ee0e5cfc51bbc2d7dfdac43b3f3a3"
+source = "git+https://github.com/oxidecomputer/usdt#93a779fa7dd3875950a21614e76fd1c7bcf674ce"
 dependencies = [
  "byteorder",
  "dof 0.4.0",
@@ -3777,7 +3777,7 @@ dependencies = [
 [[package]]
 name = "usdt-macro"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/usdt#83c62451000ee0e5cfc51bbc2d7dfdac43b3f3a3"
+source = "git+https://github.com/oxidecomputer/usdt#93a779fa7dd3875950a21614e76fd1c7bcf674ce"
 dependencies = [
  "dtrace-parser 0.3.0",
  "proc-macro2",
@@ -4292,11 +4292,11 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.48"
+version = "0.8.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eed437bf9d6692032087e337407a86f04cd8d6a16a37199ed57949d415bd68e9"
+checksum = "3b065d4f0e55f82fae73202e189638116a87c55ab6b8e6c2721e13dd9d854ad1"
 dependencies = [
- "zerocopy-derive 0.8.48",
+ "zerocopy-derive 0.8.50",
 ]
 
 [[package]]
@@ -4312,9 +4312,9 @@ dependencies = [
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.48"
+version = "0.8.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70e3cd084b1788766f53af483dd21f93881ff30d7320490ec3ef7526d203bad4"
+checksum = "0b631b19d36a892ab55420c92dbc83ccd79274f25be714855d3074aa71cab639"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4450,7 +4450,7 @@ dependencies = [
 [[package]]
 name = "ztest"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/falcon#26820ec366c1b1cc39f33843d15c25b404836123"
+source = "git+https://github.com/oxidecomputer/falcon#e33b31dea7499c22113050ff3ba7d05907e625a1"
 dependencies = [
  "anyhow",
  "libnet",
