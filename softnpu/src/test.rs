@@ -3084,8 +3084,9 @@ fn mcast_suppression_drops_when_only_group_zeroed() -> Result<(), anyhow::Error>
     phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV4, &sentinel)])?;
 
     // Wait for the sentinel to arrive at port 1, then check mcast ports.
-    // The fully-suppressed multicast packet is dropped, not leaked: with
-    // the unicast/multicast bifurcation it never enters the unicast router,
+    //
+    // The fully-suppressed multicast packet is dropped, not leaked. With
+    // the unicast/multicast bifurcation, it never enters the unicast router,
     // so an empty merged bitmap yields zero copies. Port 1 therefore
     // receives only the sentinel, and port 2 (underlay) receives nothing.
     wait_for(|| phy1.recv_buffer_len() > 0, "sentinel on port 1");
@@ -3194,7 +3195,7 @@ fn forward_to_sled_param(target: &str, vni: u32, mac: [u8; 6]) -> Vec<u8> {
     param
 }
 
-// `nat_v4_mcast` entry, keyed by (ipv4.dst, vlan.vid).
+// `nat_v4_mcast` entry, keyed on (ipv4.dst, vlan.vid).
 fn nat_mcast_v4_entry(
     dst: &str,
     vid: u16,
@@ -3209,7 +3210,7 @@ fn nat_mcast_v4_entry(
     (key_buf, forward_to_sled_param(target, vni, mac))
 }
 
-// `nat_v4_mcast_untagged` entry, keyed by (ipv4.dst).
+// `nat_v4_mcast_untagged` entry, keyed on (ipv4.dst).
 fn nat_mcast_v4_untagged_entry(
     dst: &str,
     target: &str,

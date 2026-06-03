@@ -64,13 +64,17 @@ control ingress(
         // After local and NAT processing, basic packet forwarding happens.
         //
         // Unicast and multicast are bifurcated, mirroring dendrite's
-        // sidecar.p4 (the meta.is_mcast gate). Multicast traffic is
-        // replicated and never consults the unicast nexthop resolver,
-        // whose default_action is drop. Replica destination and source
-        // MACs are derived in the egress control instead. Link-local
-        // multicast (ff02::/16) is already handled by the local path
-        // above, and expired or interface-local multicast is rejected in
-        // the parser, so neither reaches here.
+        // sidecar.p4 (the meta.is_mcast metadata gate). Multicast traffic
+        // is replicated and bypasses the unicast nexthop resolver,
+        // whose default_action is drop. Each replica's destination and
+        // source MACs are derived in the egress control instead.
+        //
+        // Link-local multicast never reaches here, but the two address
+        // families are filtered in different places. IPv6 ff02::/16 is
+        // marked local and handled by the local path above. IPv4
+        // link-local (224.0.0.0/24) carries hop scope in its TTL, so it
+        // is rejected by the parser's TTL <= 1 multicast check, as is any
+        // expired or interface-local (ff01::/16) multicast.
         bool is_mcast = false;
         if (hdr.ipv6.isValid()) {
             if (hdr.ipv6.dst[127:120] == 8w0xff) { is_mcast = true; }
