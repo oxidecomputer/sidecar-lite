@@ -1,4 +1,4 @@
-// Copyright 2022 Oxide Computer Company
+// Copyright 2026 Oxide Computer Company
 
 use softnpu::p4rs::TableEntry;
 use std::collections::BTreeMap;
@@ -187,6 +187,180 @@ enum Commands {
     /// Remove a proxy ARP entry.
     RemoveProxyArp { begin: Ipv4Addr, end: Ipv4Addr },
 
+    /// Add an IPv4 multicast replication entry.
+    AddMcastReplication4 {
+        /// Multicast group address.
+        group: Ipv4Addr,
+        /// Replication ID, used to look up egress decap ports.
+        rid: u16,
+        /// External replication-bitmap egress ports.
+        #[arg(long, value_delimiter = ',')]
+        external: Vec<u16>,
+        /// Underlay replication-bitmap egress ports.
+        #[arg(long, value_delimiter = ',')]
+        underlay: Vec<u16>,
+    },
+
+    /// Remove an IPv4 multicast replication entry.
+    RemoveMcastReplication4 {
+        /// Multicast group address.
+        group: Ipv4Addr,
+    },
+
+    /// Add an IPv6 multicast replication entry.
+    AddMcastReplication6 {
+        /// Multicast group address.
+        group: Ipv6Addr,
+        /// Replication ID, used to look up egress decap ports.
+        rid: u16,
+        /// External replication-bitmap egress ports.
+        #[arg(long, value_delimiter = ',')]
+        external: Vec<u16>,
+        /// Underlay replication-bitmap egress ports.
+        #[arg(long, value_delimiter = ',')]
+        underlay: Vec<u16>,
+    },
+
+    /// Remove an IPv6 multicast replication entry.
+    RemoveMcastReplication6 {
+        /// Multicast group address.
+        group: Ipv6Addr,
+    },
+
+    /// Add an IPv4 multicast source-filter entry.
+    AddMcastSourceFilter4 {
+        /// Allowed inner source prefix address.
+        src: Ipv4Addr,
+        /// Allowed inner source prefix length.
+        src_prefix_len: u8,
+        /// Inner multicast group address.
+        group: Ipv4Addr,
+    },
+
+    /// Remove an IPv4 multicast source-filter entry.
+    RemoveMcastSourceFilter4 {
+        /// Allowed inner source prefix address.
+        src: Ipv4Addr,
+        /// Allowed inner source prefix length.
+        src_prefix_len: u8,
+        /// Inner multicast group address.
+        group: Ipv4Addr,
+    },
+
+    /// Add an IPv6 multicast source-filter entry.
+    AddMcastSourceFilter6 {
+        /// Allowed inner source prefix address.
+        src: Ipv6Addr,
+        /// Allowed inner source prefix length.
+        src_prefix_len: u8,
+        /// Inner multicast group address.
+        group: Ipv6Addr,
+    },
+
+    /// Remove an IPv6 multicast source-filter entry.
+    RemoveMcastSourceFilter6 {
+        /// Allowed inner source prefix address.
+        src: Ipv6Addr,
+        /// Allowed inner source prefix length.
+        src_prefix_len: u8,
+        /// Inner multicast group address.
+        group: Ipv6Addr,
+    },
+
+    /// Add an IPv4 multicast NAT entry.
+    AddMcastNat4 {
+        /// Outer multicast group address.
+        dst: Ipv4Addr,
+        /// Underlay IPv6 address to send encapsulated packets to.
+        target: Ipv6Addr,
+        /// VNI to encapsulate packets onto.
+        vni: u32,
+        /// Inner-packet L2 destination MAC.
+        mac: MacAddr6,
+        /// VLAN ID.
+        ///
+        /// When set, this programs the tagged table; otherwise, this is
+        /// untagged.
+        #[arg(long)]
+        vid: Option<u16>,
+    },
+
+    /// Remove an IPv4 multicast NAT entry.
+    RemoveMcastNat4 {
+        /// Outer multicast group address.
+        dst: Ipv4Addr,
+        /// VLAN ID.
+        ///
+        /// When set, this targets the tagged table; otherwise, this is
+        /// untagged.
+        #[arg(long)]
+        vid: Option<u16>,
+    },
+
+    /// Add an IPv6 multicast NAT entry.
+    AddMcastNat6 {
+        /// Outer multicast group address.
+        dst: Ipv6Addr,
+        /// Underlay IPv6 address to send encapsulated packets to.
+        target: Ipv6Addr,
+        /// VNI to encapsulate packets onto.
+        vni: u32,
+        /// Inner-packet L2 destination MAC.
+        mac: MacAddr6,
+        /// VLAN ID.
+        ///
+        /// When set, this programs the tagged table; otherwise, this is
+        /// untagged.
+        #[arg(long)]
+        vid: Option<u16>,
+    },
+
+    /// Remove an IPv6 multicast NAT entry.
+    RemoveMcastNat6 {
+        /// Outer multicast group address.
+        dst: Ipv6Addr,
+        /// VLAN ID.
+        ///
+        /// When set, this targets the tagged table; otherwise, this is
+        /// untagged.
+        #[arg(long)]
+        vid: Option<u16>,
+    },
+
+    /// Add a multicast egress decap-ports entry.
+    AddMcastDecapPorts {
+        /// Replication ID this decap bitmap applies to.
+        rid: u16,
+        /// Ports that receive decapsulated traffic.
+        #[arg(long, value_delimiter = ',')]
+        ports: Vec<u16>,
+        /// VLAN ID to apply on decap.
+        ///
+        /// When set, this programs the vlan action.
+        #[arg(long)]
+        vlan: Option<u16>,
+    },
+
+    /// Remove a multicast egress decap-ports entry.
+    RemoveMcastDecapPorts {
+        /// Replication ID this decap bitmap applies to.
+        rid: u16,
+    },
+
+    /// Add a multicast egress source-MAC rewrite entry.
+    AddMcastSrcMac {
+        /// Egress port the rewrite applies to.
+        port: u16,
+        /// Source MAC to stamp on replicated copies leaving this port.
+        mac: MacAddr6,
+    },
+
+    /// Remove a multicast egress source-MAC rewrite entry.
+    RemoveMcastSrcMac {
+        /// Egress port the rewrite applies to.
+        port: u16,
+    },
+
     /// Load a program onto the SoftNPU ASIC emulator
     LoadProgram { path: String },
 
@@ -219,6 +393,16 @@ const RESOLVER_V4: &str = "ingress.resolver.resolver_v4";
 const RESOLVER_V6: &str = "ingress.resolver.resolver_v6";
 const MAC_REWRITE: &str = "ingress.mac.mac_rewrite";
 const PROXY_ARP: &str = "ingress.pxarp.proxy_arp";
+const MCAST_REPLICATION_V4: &str = "ingress.mcast.mcast_replication_v4";
+const MCAST_REPLICATION_V6: &str = "ingress.mcast.mcast_replication_v6";
+const MCAST_SOURCE_FILTER_V4: &str = "ingress.mcast.mcast_source_filter_v4";
+const MCAST_SOURCE_FILTER_V6: &str = "ingress.mcast.mcast_source_filter_v6";
+const NAT_V4_MCAST: &str = "ingress.nat.nat_v4_mcast";
+const NAT_V6_MCAST: &str = "ingress.nat.nat_v6_mcast";
+const NAT_V4_MCAST_UNTAGGED: &str = "ingress.nat.nat_v4_mcast_untagged";
+const NAT_V6_MCAST_UNTAGGED: &str = "ingress.nat.nat_v6_mcast_untagged";
+const DECAP_PORTS: &str = "egress.tbl_decap_ports";
+const MCAST_SRC_MAC: &str = "egress.mcast_src_mac";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Cidr {
@@ -317,7 +501,8 @@ async fn main() {
             let idx = table.find_available();
 
             // Add idx->route to the route table
-            let keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+            let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+            keyset_data.push(0);
 
             let mut parameter_data = port.to_le_bytes().to_vec();
             let mut nexthop_data: Vec<u8> = nexthop.octets().into();
@@ -330,6 +515,21 @@ async fn main() {
                     action: "forward".into(),
                     keyset_data,
                     parameter_data,
+                }),
+                &cli,
+            )
+            .await;
+
+            // Add ttl==1 entry to drop.
+            let mut ttl_keyset_data = idx.to_le_bytes().to_vec();
+            ttl_keyset_data.push(1);
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: ROUTER_V4_RT.into(),
+                    action: "ttl_exceeded".into(),
+                    keyset_data: ttl_keyset_data,
+                    parameter_data: Vec::new(),
                 }),
                 &cli,
             )
@@ -371,16 +571,18 @@ async fn main() {
                 .await;
 
                 // Remove the entry from the idx->route table table
-                let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
-                keyset_data.push(mask);
-                send(
-                    ManagementRequest::TableRemove(TableRemove {
-                        table: ROUTER_V4_RT.into(),
-                        keyset_data,
-                    }),
-                    &cli,
-                )
-                .await;
+                for ttl in [0u8, 1u8] {
+                    let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+                    keyset_data.push(ttl);
+                    send(
+                        ManagementRequest::TableRemove(TableRemove {
+                            table: ROUTER_V4_RT.into(),
+                            keyset_data,
+                        }),
+                        &cli,
+                    )
+                    .await;
+                }
             }
         }
 
@@ -394,7 +596,8 @@ async fn main() {
             let idx = table.find_available();
 
             // Add idx->route to the route table
-            let keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+            let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+            keyset_data.push(0);
 
             let mut parameter_data = port.to_le_bytes().to_vec();
             let mut nexthop_data: Vec<u8> = nexthop.octets().into();
@@ -407,6 +610,21 @@ async fn main() {
                     action: "forward".into(),
                     keyset_data,
                     parameter_data,
+                }),
+                &cli,
+            )
+            .await;
+
+            // Add ttl==1 entry to drop.
+            let mut ttl_keyset_data = idx.to_le_bytes().to_vec();
+            ttl_keyset_data.push(1);
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: ROUTER_V6_RT.into(),
+                    action: "ttl_exceeded".into(),
+                    keyset_data: ttl_keyset_data,
+                    parameter_data: Vec::new(),
                 }),
                 &cli,
             )
@@ -448,16 +666,18 @@ async fn main() {
                 .await;
 
                 // Remove the entry from the idx->route table table
-                let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
-                keyset_data.push(mask);
-                send(
-                    ManagementRequest::TableRemove(TableRemove {
-                        table: ROUTER_V6_RT.into(),
-                        keyset_data,
-                    }),
-                    &cli,
-                )
-                .await;
+                for ttl in [0u8, 1u8] {
+                    let mut keyset_data: Vec<u8> = idx.to_le_bytes().to_vec();
+                    keyset_data.push(ttl);
+                    send(
+                        ManagementRequest::TableRemove(TableRemove {
+                            table: ROUTER_V6_RT.into(),
+                            keyset_data,
+                        }),
+                        &cli,
+                    )
+                    .await;
+                }
             }
         }
 
@@ -803,6 +1023,351 @@ async fn main() {
             .await;
         }
 
+        Commands::AddMcastReplication4 {
+            group,
+            rid,
+            ref external,
+            ref underlay,
+        } => {
+            let mut keyset_data: Vec<u8> = group.octets().into();
+            keyset_data.reverse();
+
+            let mut parameter_data = port_bitmap(external);
+            parameter_data.extend_from_slice(&port_bitmap(underlay));
+            parameter_data.extend_from_slice(&rid.to_le_bytes());
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: MCAST_REPLICATION_V4.into(),
+                    action: "set_port_bitmap".into(),
+                    keyset_data,
+                    parameter_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::RemoveMcastReplication4 { group } => {
+            let mut keyset_data: Vec<u8> = group.octets().into();
+            keyset_data.reverse();
+            send(
+                ManagementRequest::TableRemove(TableRemove {
+                    table: MCAST_REPLICATION_V4.into(),
+                    keyset_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::AddMcastReplication6 {
+            group,
+            rid,
+            ref external,
+            ref underlay,
+        } => {
+            let mut keyset_data: Vec<u8> = group.octets().into();
+            keyset_data.reverse();
+
+            let mut parameter_data = port_bitmap(external);
+            parameter_data.extend_from_slice(&port_bitmap(underlay));
+            parameter_data.extend_from_slice(&rid.to_le_bytes());
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: MCAST_REPLICATION_V6.into(),
+                    action: "set_port_bitmap".into(),
+                    keyset_data,
+                    parameter_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::RemoveMcastReplication6 { group } => {
+            let mut keyset_data: Vec<u8> = group.octets().into();
+            keyset_data.reverse();
+            send(
+                ManagementRequest::TableRemove(TableRemove {
+                    table: MCAST_REPLICATION_V6.into(),
+                    keyset_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::AddMcastSourceFilter4 {
+            src,
+            src_prefix_len,
+            group,
+        } => {
+            let keyset_data = mcast_source_filter_key(
+                &src.octets(),
+                src_prefix_len,
+                &group.octets(),
+            );
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: MCAST_SOURCE_FILTER_V4.into(),
+                    action: "allow_source".into(),
+                    keyset_data,
+                    parameter_data: Vec::new(),
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::RemoveMcastSourceFilter4 {
+            src,
+            src_prefix_len,
+            group,
+        } => {
+            let keyset_data = mcast_source_filter_key(
+                &src.octets(),
+                src_prefix_len,
+                &group.octets(),
+            );
+
+            send(
+                ManagementRequest::TableRemove(TableRemove {
+                    table: MCAST_SOURCE_FILTER_V4.into(),
+                    keyset_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::AddMcastSourceFilter6 {
+            src,
+            src_prefix_len,
+            group,
+        } => {
+            let keyset_data = mcast_source_filter_key(
+                &src.octets(),
+                src_prefix_len,
+                &group.octets(),
+            );
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: MCAST_SOURCE_FILTER_V6.into(),
+                    action: "allow_source".into(),
+                    keyset_data,
+                    parameter_data: Vec::new(),
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::RemoveMcastSourceFilter6 {
+            src,
+            src_prefix_len,
+            group,
+        } => {
+            let keyset_data = mcast_source_filter_key(
+                &src.octets(),
+                src_prefix_len,
+                &group.octets(),
+            );
+
+            send(
+                ManagementRequest::TableRemove(TableRemove {
+                    table: MCAST_SOURCE_FILTER_V6.into(),
+                    keyset_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::AddMcastNat4 {
+            dst,
+            target,
+            vni,
+            ref mac,
+            vid,
+        } => {
+            if vni >= 1 << 24 {
+                println!("vni too big, only 24 bits");
+                std::process::exit(1);
+            }
+
+            let mut keyset_data: Vec<u8> = dst.octets().into();
+            keyset_data.reverse();
+            let (keyset_data, table) = mcast_nat_table(
+                keyset_data,
+                vid,
+                NAT_V4_MCAST,
+                NAT_V4_MCAST_UNTAGGED,
+            );
+
+            let parameter_data = forward_to_sled_param(&target, vni, mac);
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: table.into(),
+                    action: "forward_to_sled".into(),
+                    keyset_data,
+                    parameter_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::RemoveMcastNat4 { dst, vid } => {
+            let mut keyset_data: Vec<u8> = dst.octets().into();
+            keyset_data.reverse();
+            let (keyset_data, table) = mcast_nat_table(
+                keyset_data,
+                vid,
+                NAT_V4_MCAST,
+                NAT_V4_MCAST_UNTAGGED,
+            );
+
+            send(
+                ManagementRequest::TableRemove(TableRemove {
+                    table: table.into(),
+                    keyset_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::AddMcastNat6 {
+            dst,
+            target,
+            vni,
+            ref mac,
+            vid,
+        } => {
+            if vni >= 1 << 24 {
+                println!("vni too big, only 24 bits");
+                std::process::exit(1);
+            }
+
+            let mut keyset_data: Vec<u8> = dst.octets().into();
+            keyset_data.reverse();
+            let (keyset_data, table) = mcast_nat_table(
+                keyset_data,
+                vid,
+                NAT_V6_MCAST,
+                NAT_V6_MCAST_UNTAGGED,
+            );
+
+            let parameter_data = forward_to_sled_param(&target, vni, mac);
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: table.into(),
+                    action: "forward_to_sled".into(),
+                    keyset_data,
+                    parameter_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::RemoveMcastNat6 { dst, vid } => {
+            let mut keyset_data: Vec<u8> = dst.octets().into();
+            keyset_data.reverse();
+            let (keyset_data, table) = mcast_nat_table(
+                keyset_data,
+                vid,
+                NAT_V6_MCAST,
+                NAT_V6_MCAST_UNTAGGED,
+            );
+
+            send(
+                ManagementRequest::TableRemove(TableRemove {
+                    table: table.into(),
+                    keyset_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::AddMcastDecapPorts {
+            rid,
+            ref ports,
+            vlan,
+        } => {
+            let keyset_data: Vec<u8> = rid.to_le_bytes().to_vec();
+            let mut parameter_data = port_bitmap(ports);
+            let action = match vlan {
+                Some(v) => {
+                    validate_vlan(v);
+                    parameter_data.extend_from_slice(&v.to_le_bytes());
+                    "set_decap_ports_and_vlan"
+                }
+                None => "set_decap_ports",
+            };
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: DECAP_PORTS.into(),
+                    action: action.into(),
+                    keyset_data,
+                    parameter_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::RemoveMcastDecapPorts { rid } => {
+            let keyset_data: Vec<u8> = rid.to_le_bytes().to_vec();
+            send(
+                ManagementRequest::TableRemove(TableRemove {
+                    table: DECAP_PORTS.into(),
+                    keyset_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::AddMcastSrcMac { port, ref mac } => {
+            // rewrite_src_mac assigns hdr.ethernet.src, identical to the
+            // mac_rewrite `rewrite` action, so the MAC is sent raw like
+            // SetMac (not reversed like the nat/resolver paths).
+            let keyset_data: Vec<u8> = port.to_le_bytes().to_vec();
+            let parameter_data: Vec<u8> = mac.as_bytes().into();
+
+            send(
+                ManagementRequest::TableAdd(TableAdd {
+                    table: MCAST_SRC_MAC.into(),
+                    action: "rewrite_src_mac".into(),
+                    keyset_data,
+                    parameter_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
+        Commands::RemoveMcastSrcMac { port } => {
+            let keyset_data: Vec<u8> = port.to_le_bytes().to_vec();
+            send(
+                ManagementRequest::TableRemove(TableRemove {
+                    table: MCAST_SRC_MAC.into(),
+                    keyset_data,
+                }),
+                &cli,
+            )
+            .await;
+        }
+
         Commands::LoadProgram { path } => {
             if cli.mode == Mode::Standalone {
                 panic!("load program not supported in standalone mode");
@@ -857,6 +1422,89 @@ fn save_tables(table: &BTreeMap<String, Vec<TableEntry>>, filename: &str) {
     std::fs::write(filename, j.as_bytes()).unwrap();
 }
 
+// Encode ports as a 128-bit (16-byte) little-endian bitmap, matching the
+// p4rs `load_le`/`replicate` interpretation where bit N (value 2^N)
+// corresponds to port N.
+fn port_bitmap(ports: &[u16]) -> Vec<u8> {
+    let mut bitmap: u128 = 0;
+    for &port in ports {
+        match 1u128.checked_shl(port.into()) {
+            Some(bit) => bitmap |= bit,
+            None => {
+                println!("port {port} exceeds 128-bit bitmap width");
+                std::process::exit(1);
+            }
+        }
+    }
+    bitmap.to_le_bytes().to_vec()
+}
+
+// Reject VLAN IDs outside the 802.1Q usable range [2, 4095]. VLAN 0 is
+// reserved for priority tagging and VLAN 1 is the default VLAN, so
+// dendrite's control plane (`common::network::validate_vlan`) rejects
+// both. We mirror that range here to keep the two implementations in
+// agreement.
+fn validate_vlan(id: u16) {
+    if !(2..=4095).contains(&id) {
+        println!("invalid vlan id {id}, must be in [2, 4095]");
+        std::process::exit(1);
+    }
+}
+
+// Finish a multicast NAT key and select its table. The input `keyset` holds
+// the byte-reversed destination. For tagged entries the LE-encoded `vid` is
+// appended and the tagged table is returned, otherwise the key is unchanged
+// and the untagged table is returned.
+//
+// Shared by the v4/v6 add and remove handlers, which differ only in their
+// table constants.
+fn mcast_nat_table(
+    mut keyset: Vec<u8>,
+    vid: Option<u16>,
+    tagged: &'static str,
+    untagged: &'static str,
+) -> (Vec<u8>, &'static str) {
+    match vid {
+        Some(v) => {
+            validate_vlan(v);
+            keyset.extend_from_slice(&v.to_le_bytes());
+            (keyset, tagged)
+        }
+        None => (keyset, untagged),
+    }
+}
+
+// Build a multicast source-filter key, with the source prefix in network order
+// (LPM match), its prefix length, then the byte-reversed group address
+// (exact match).
+//
+// Shared by the v4/v6 add and remove handlers.
+fn mcast_source_filter_key(
+    src: &[u8],
+    src_prefix_len: u8,
+    group: &[u8],
+) -> Vec<u8> {
+    let mut keyset = src.to_vec();
+    keyset.push(src_prefix_len);
+    keyset.extend(group.iter().rev());
+    keyset
+}
+
+// Build the `forward_to_sled(target, vni, mac)` action parameters for the
+// multicast NAT tables: the byte-reversed underlay target, the low 24 bits
+// of the vni, and the byte-reversed inner L2 destination MAC.
+fn forward_to_sled_param(
+    target: &Ipv6Addr,
+    vni: u32,
+    mac: &MacAddr6,
+) -> Vec<u8> {
+    let mut param: Vec<u8> = target.octets().into();
+    param.reverse();
+    param.extend_from_slice(&vni.to_le_bytes()[0..3]);
+    param.extend(mac.as_bytes().iter().rev());
+    param
+}
+
 fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
     println!("local v6:");
     for e in table.get(LOCAL_V6).unwrap() {
@@ -901,6 +1549,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
                 None => "?".into(),
             };
             println!("{idx} -> {gw}");
+        } else if e.action_id == "ttl_exceeded" {
+            println!("{idx} -> ttl_exceeded (drop)");
         } else {
             println!("unrecognized action: {}", e.action_id);
         }
@@ -938,6 +1588,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
                 None => "?".into(),
             };
             println!("{idx} -> {gw}");
+        } else if e.action_id == "ttl_exceeded" {
+            println!("{idx} -> ttl_exceeded (drop)");
         } else {
             println!("unrecognized action: {}", e.action_id);
         }
@@ -1074,6 +1726,142 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         );
         println!("{begin}/{end}: {mac}");
     }
+
+    for (name, table_name) in
+        [("v4", MCAST_REPLICATION_V4), ("v6", MCAST_REPLICATION_V6)]
+    {
+        println!("mcast replication {name}:");
+        for e in table.get(table_name).unwrap() {
+            let group = match get_addr(&e.keyset_data, false) {
+                Some(a) => a.to_string(),
+                None => "?".into(),
+            };
+            let p = &e.parameter_data;
+            if p.len() == 34 {
+                let external = bitmap_ports(&p[0..16]);
+                let underlay = bitmap_ports(&p[16..32]);
+                let rid = u16::from_le_bytes([p[32], p[33]]);
+                println!(
+                    "{group} -> rid {rid} external {external:?} underlay {underlay:?}"
+                );
+            } else {
+                println!("{group} -> {p:x?}");
+            }
+        }
+    }
+
+    for (name, table_name) in [
+        ("v4", MCAST_SOURCE_FILTER_V4),
+        ("v6", MCAST_SOURCE_FILTER_V6),
+    ] {
+        println!("mcast source filter {name}:");
+        for e in table.get(table_name).unwrap() {
+            let k = &e.keyset_data;
+            // src prefix is stored network-order, group exact is reversed.
+            let (src, prefix, group) = match k.len() {
+                9 => (get_addr(&k[..4], true), k[4], get_addr(&k[5..9], false)),
+                33 => (
+                    get_addr(&k[..16], true),
+                    k[16],
+                    get_addr(&k[17..33], false),
+                ),
+                _ => {
+                    println!("? {k:x?}");
+                    continue;
+                }
+            };
+            let src = src.map(|a| a.to_string()).unwrap_or("?".into());
+            let group = group.map(|a| a.to_string()).unwrap_or("?".into());
+            println!("src {src}/{prefix} group {group}");
+        }
+    }
+
+    for (name, tagged, untagged) in [
+        ("v4", NAT_V4_MCAST, NAT_V4_MCAST_UNTAGGED),
+        ("v6", NAT_V6_MCAST, NAT_V6_MCAST_UNTAGGED),
+    ] {
+        println!("nat {name} mcast (tagged):");
+        for e in table.get(tagged).unwrap() {
+            dump_nat_mcast_entry(e, true);
+        }
+        println!("nat {name} mcast (untagged):");
+        for e in table.get(untagged).unwrap() {
+            dump_nat_mcast_entry(e, false);
+        }
+    }
+
+    println!("decap ports:");
+    for e in table.get(DECAP_PORTS).unwrap() {
+        let rid = get_u16(&e.keyset_data)
+            .map(|r| r.to_string())
+            .unwrap_or("?".into());
+        let p = &e.parameter_data;
+        let ports = bitmap_ports(&p[..16.min(p.len())]);
+        if e.action_id == "set_decap_ports_and_vlan" && p.len() >= 18 {
+            let vlan = u16::from_le_bytes([p[16], p[17]]);
+            println!("rid {rid} -> ports {ports:?} vlan {vlan}");
+        } else {
+            println!("rid {rid} -> ports {ports:?}");
+        }
+    }
+
+    println!("mcast src mac:");
+    for e in table.get(MCAST_SRC_MAC).unwrap() {
+        let port = get_u16(&e.keyset_data)
+            .map(|p| p.to_string())
+            .unwrap_or("?".into());
+        let m = &e.parameter_data;
+        // rewrite_src_mac stores the MAC raw, not byte-reversed.
+        let mac = format!(
+            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            m[0], m[1], m[2], m[3], m[4], m[5],
+        );
+        println!("{port}: {mac}");
+    }
+}
+
+// Print one nat mcast entry. Tagged entries carry a trailing little-endian
+// vid in the key after the byte-reversed multicast destination.
+fn dump_nat_mcast_entry(e: &TableEntry, tagged: bool) {
+    let k = &e.keyset_data;
+    let (addr_len, vid) = match (k.len(), tagged) {
+        (6, true) => (4, Some(u16::from_le_bytes([k[4], k[5]]))),
+        (18, true) => (16, Some(u16::from_le_bytes([k[16], k[17]]))),
+        (4, false) => (4, None),
+        (16, false) => (16, None),
+        _ => {
+            println!("? {k:x?}");
+            return;
+        }
+    };
+    let dst = get_addr(&k[..addr_len], false)
+        .map(|a| a.to_string())
+        .unwrap_or("?".into());
+    let target = match get_addr_vni_mac(&e.parameter_data) {
+        Some((addr, vni, m)) => format!(
+            "{} {}/{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            addr, vni, m[5], m[4], m[3], m[2], m[1], m[0],
+        ),
+        None => "?".into(),
+    };
+    match vid {
+        Some(v) => println!("{dst} vid: {v} -> {target}"),
+        None => println!("{dst} -> {target}"),
+    }
+}
+
+// Decode a 128-bit (16-byte) little-endian port bitmap back into the list of
+// set port numbers, the inverse of `port_bitmap`.
+fn bitmap_ports(data: &[u8]) -> Vec<u16> {
+    let mut ports = Vec::new();
+    for (byte_idx, &b) in data.iter().enumerate() {
+        for bit in 0..8 {
+            if b & (1 << bit) != 0 {
+                ports.push((byte_idx * 8 + bit) as u16);
+            }
+        }
+    }
+    ports
 }
 
 // use this if you are unsure how to dump a new entry
@@ -1110,14 +1898,16 @@ fn get_addr(data: &[u8], rev: bool) -> Option<IpAddr> {
     }
 }
 
+/// Extract a u16 from the first two bytes of `data`. Ignores trailing
+/// bytes so this works on compound keys (e.g. path_idx + route_ttl_is_1).
 fn get_u16(data: &[u8]) -> Option<u16> {
-    match data.len() {
-        2 => Some(u16::from_le_bytes([data[0], data[1]])),
-        _ => {
-            println!("expected u16, found: {data:x?}");
+    data.get(..2)
+        .and_then(|s| s.try_into().ok())
+        .map(u16::from_le_bytes)
+        .or_else(|| {
+            println!("expected at least 2 bytes for u16, found: {data:x?}");
             None
-        }
-    }
+        })
 }
 
 fn get_mac(data: &[u8]) -> Option<[u8; 6]> {
