@@ -11,7 +11,7 @@ p4-macro = { git = "https://github.com/oxidecomputer/p4", branch = "main" }
 p4-test = { package = "tests", git = "https://github.com/oxidecomputer/p4", branch = "main" }
 usdt = { git = "https://github.com/oxidecomputer/usdt" }
 
-base64 = { version = "0.22" }
+base64 = { version = "0.23" }
 clap = { version = "4.6.1", features = ["derive", "unstable-styles"] }
 anstyle = "1.0.14"
 libc = "0.2"
