@@ -576,9 +576,21 @@ fn router_idx_entry(
     idx: u16,
     slots: u8,
 ) -> (Vec<u8>, Vec<u8>) {
-    let mut key_buf = match dst.parse().unwrap() {
-        IpAddr::V4(a) => a.octets().to_vec(),
-        IpAddr::V6(a) => a.octets().to_vec(),
+    router_idx_entry_rid(0, dst, prefix_len, idx, slots)
+}
+
+// Create an entry for the multipath cidr -> index table of a specific router
+fn router_idx_entry_rid(
+    rid: u8,
+    dst: &str,
+    prefix_len: u8,
+    idx: u16,
+    slots: u8,
+) -> (Vec<u8>, Vec<u8>) {
+    let mut key_buf = vec![rid];
+    match dst.parse().unwrap() {
+        IpAddr::V4(a) => key_buf.extend_from_slice(&a.octets()),
+        IpAddr::V6(a) => key_buf.extend_from_slice(&a.octets()),
     };
     key_buf.push(prefix_len);
 
@@ -662,4 +674,138 @@ fn mac_rewrite_entry(port: u16, mac: [u8; 6]) -> (Vec<u8>, Vec<u8>) {
     let param_buf = mac.to_vec();
 
     (key_buf, param_buf)
+}
+
+// Build a geneve-encapped ipv4 packet destined to the given TEP address,
+// returning the outer ipv6 packet bytes.
+fn geneve_encapped_v4(tep: &str, inner_dst_addr: &str) -> Vec<u8> {
+    let mut n = 8;
+    let mut icmp_data: Vec<u8> = vec![0; n];
+    let mut icmp = MutableIcmpPacket::new(&mut icmp_data).unwrap();
+    icmp.set_payload([0x04, 0x17, 0x00, 0x00].as_slice());
+
+    n += 20;
+    let mut inner_ip_data: Vec<u8> = vec![0; n];
+    let inner_src: Ipv4Addr = "1.2.3.4".parse().unwrap();
+    let inner_dst: Ipv4Addr = inner_dst_addr.parse().unwrap();
+    let mut inner_ip = MutableIpv4Packet::new(&mut inner_ip_data).unwrap();
+    inner_ip.set_version(4);
+    inner_ip.set_source(inner_src);
+    inner_ip.set_header_length(5);
+    inner_ip.set_destination(inner_dst);
+    inner_ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
+    inner_ip.set_total_length(20 + icmp_data.len() as u16);
+    inner_ip.set_payload(&icmp_data);
+
+    n += 14;
+    let mut eth_data: Vec<u8> = vec![0; n];
+    let mut eth = MutableEthernetPacket::new(&mut eth_data).unwrap();
+    eth.set_destination(MacAddr::new(0x11, 0x11, 0x11, 0x22, 0x22, 0x22));
+    eth.set_source(MacAddr::new(0x33, 0x33, 0x33, 0x44, 0x44, 0x44));
+    eth.set_ethertype(EtherType(0x0800));
+    eth.set_payload(&inner_ip_data);
+
+    n += 8;
+    let mut geneve_data: Vec<u8> =
+        vec![0x00, 0x00, 0x65, 0x58, 0x11, 0x11, 0x11, 0x00];
+    geneve_data.extend_from_slice(&eth_data);
+
+    n += 8;
+    let mut udp_data: Vec<u8> = vec![0; n];
+    let mut udp = MutableUdpPacket::new(&mut udp_data).unwrap();
+    udp.set_source(100);
+    udp.set_destination(6081);
+    udp.set_checksum(0x1701);
+    udp.set_payload(&geneve_data);
+
+    n += 40;
+    let mut ip_data: Vec<u8> = vec![0; n];
+    let mut ip = MutableIpv6Packet::new(&mut ip_data).unwrap();
+    ip.set_version(6);
+    ip.set_source("fd00:1::1".parse::<Ipv6Addr>().unwrap());
+    ip.set_destination(tep.parse::<Ipv6Addr>().unwrap());
+    ip.set_payload_length(udp_data.len() as u16);
+    ip.set_payload(&udp_data);
+    ip.set_next_header(IpNextHeaderProtocol::new(17));
+
+    ip_data
+}
+
+#[test]
+fn multi_router_isolation() -> Result<(), anyhow::Error> {
+    // rid-0's gateway mac, from pipeline_init's resolver entry for 1.2.3.1.
+    // rewrite_dst takes its bit<48> parameter little-endian, so the mac on
+    // the wire is the parameter buffer reversed.
+    const RID0_MAC: [u8; 6] = [13, 12, 11, 10, 9, 8];
+    const RID2_MAC: [u8; 6] = [45, 44, 43, 42, 41, 40];
+
+    let mut pipeline = main_pipeline::new(2);
+    pipeline_init(&mut pipeline);
+
+    // router 2: TEP fd00:99::2 with its own default route via gw 1.2.3.9
+    let (key_buf, _) = local6_entry("fd00:99::2");
+    pipeline.add_ingress_local_local_v6_entry("local_rid", &key_buf, &[2], 0);
+
+    let (key_buf, param_buf) = router_idx_entry_rid(2, "0.0.0.0", 0, 4, 1);
+    pipeline
+        .add_ingress_router_v4_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_forward_entry(4, "1.2.3.9", 1);
+    pipeline.add_ingress_router_v4_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
+    let (key_buf, param_buf) = resolver4_entry("1.2.3.9", {
+        let mut m = RID2_MAC;
+        m.reverse();
+        m
+    });
+    pipeline.add_ingress_resolver_resolver_v4_entry(
+        "rewrite_dst",
+        &key_buf,
+        &param_buf,
+        0,
+    );
+
+    // router 3: TEP fd00:99::3 with no routes at all
+    let (key_buf, _) = local6_entry("fd00:99::3");
+    pipeline.add_ingress_local_local_v6_entry("local_rid", &key_buf, &[3], 0);
+
+    let mut npu = SoftNpu::new(2, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+    npu.run();
+
+    // to the default router's TEP: routed by rid 0
+    let pkt = geneve_encapped_v4("fd00:99::1", "8.8.8.8");
+    phy0.send(&[TxFrame::new(phy1.mac, 0x86dd, &pkt)])?;
+    let fs = phy1.recv();
+    assert_eq!(fs.len(), 1);
+    assert_eq!(fs[0].dst, RID0_MAC, "rid-0 traffic must use rid-0's route");
+
+    // to router 2's TEP: routed by rid 2's table, not rid 0's
+    let pkt = geneve_encapped_v4("fd00:99::2", "8.8.8.8");
+    phy0.send(&[TxFrame::new(phy1.mac, 0x86dd, &pkt)])?;
+    let fs = phy1.recv();
+    assert_eq!(fs.len(), 1);
+    assert_eq!(fs[0].dst, RID2_MAC, "rid-2 traffic must use rid-2's route");
+
+    // to router 3's TEP: no rid-3 routes, so the packet must be dropped
+    // rather than falling through to rid 0's default route. Chase it with
+    // another rid-0 packet (distinct inner dst); frames egress in order, so
+    // if only the chaser arrives the rid-3 packet was dropped.
+    let pkt = geneve_encapped_v4("fd00:99::3", "8.8.8.8");
+    phy0.send(&[TxFrame::new(phy1.mac, 0x86dd, &pkt)])?;
+    let chaser = geneve_encapped_v4("fd00:99::1", "9.9.9.9");
+    phy0.send(&[TxFrame::new(phy1.mac, 0x86dd, &chaser)])?;
+
+    let mut frames = Vec::new();
+    while !frames.iter().any(|f: &p4_test::softnpu::OwnedFrame| {
+        Ipv4Packet::new(&f.payload).unwrap().get_destination()
+            == "9.9.9.9".parse::<Ipv4Addr>().unwrap()
+    }) {
+        frames.extend(phy1.recv());
+    }
+    assert_eq!(frames.len(), 1, "rid-3 packet must be dropped, not leak");
+    assert_eq!(frames[0].dst, RID0_MAC);
+
+    Ok(())
 }

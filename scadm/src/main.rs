@@ -51,6 +51,10 @@ enum Commands {
 
         /// Next Hop
         nexthop: Ipv4Addr,
+
+        /// Router id performing the lookup (the default router is 0).
+        #[clap(long, default_value_t = 0)]
+        rid: u8,
     },
 
     /// Remove a route from the routing table.
@@ -60,6 +64,10 @@ enum Commands {
 
         /// Subnet mask for the destination.
         mask: u8,
+
+        /// Router id performing the lookup (the default router is 0).
+        #[clap(long, default_value_t = 0)]
+        rid: u8,
     },
 
     /// Add an IPv6 route to the routing table.
@@ -75,6 +83,10 @@ enum Commands {
 
         /// Next Hop
         nexthop: Ipv6Addr,
+
+        /// Router id performing the lookup (the default router is 0).
+        #[clap(long, default_value_t = 0)]
+        rid: u8,
     },
 
     /// Remove a route from the routing table.
@@ -84,12 +96,20 @@ enum Commands {
 
         /// Subnet mask for the destination.
         mask: u8,
+
+        /// Router id performing the lookup (the default router is 0).
+        #[clap(long, default_value_t = 0)]
+        rid: u8,
     },
 
     /// Add an IPv6 address to the router.
     AddAddress6 {
         /// Address to add.
         address: Ipv6Addr,
+
+        /// Router id claiming the address (the default router is 0).
+        #[clap(long, default_value_t = 0)]
+        rid: u8,
     },
 
     /// Remove an IPv6 address from the router.
@@ -232,7 +252,7 @@ enum RouteType {
 }
 
 struct RouteData {
-    data: BTreeMap<Cidr, u16>,
+    data: BTreeMap<(u8, Cidr), u16>,
 }
 
 impl RouteData {
@@ -240,22 +260,22 @@ impl RouteData {
     fn extract_route_idx(
         typ: RouteType,
         full: &BTreeMap<String, Vec<TableEntry>>,
-    ) -> BTreeMap<Cidr, u16> {
+    ) -> BTreeMap<(u8, Cidr), u16> {
         let mut data = BTreeMap::new();
         let table = match typ {
             RouteType::V4 => ROUTER_V4_IDX,
             RouteType::V6 => ROUTER_V6_IDX,
         };
         for e in full.get(table).unwrap() {
-            let subnet = match get_addr_subnet(&e.keyset_data) {
-                Some((address, mask)) => Cidr { address, mask },
+            let (rid, subnet) = match get_rid_addr_subnet(&e.keyset_data) {
+                Some((rid, address, mask)) => (rid, Cidr { address, mask }),
                 _ => continue,
             };
             let idx = match get_idx_slots(&e.parameter_data) {
                 Some((idx, _slots)) => idx,
                 None => continue,
             };
-            data.insert(subnet, idx);
+            data.insert((rid, subnet), idx);
         }
         data
     }
@@ -286,9 +306,9 @@ impl RouteData {
     }
 
     // Given a route destination, find the corresponding table index
-    pub fn lookup(&self, address: IpAddr, mask: u8) -> Option<u16> {
+    pub fn lookup(&self, rid: u8, address: IpAddr, mask: u8) -> Option<u16> {
         let cidr = Cidr { address, mask };
-        self.data.get(&cidr).copied()
+        self.data.get(&(rid, cidr)).copied()
     }
 
     // Find an open slot in the route table
@@ -312,6 +332,7 @@ async fn main() {
             mask,
             port,
             nexthop,
+            rid,
         } => {
             let table = RouteData::load(RouteType::V4, &cli).await;
             let idx = table.find_available();
@@ -335,8 +356,9 @@ async fn main() {
             )
             .await;
 
-            // Now add cidr->idx to the index table
-            let mut keyset_data: Vec<u8> = destination.octets().into();
+            // Now add (rid, cidr)->idx to the index table
+            let mut keyset_data: Vec<u8> = vec![rid];
+            keyset_data.extend_from_slice(&destination.octets());
             keyset_data.push(mask);
 
             // Hardcoded slot count.
@@ -354,11 +376,17 @@ async fn main() {
             )
             .await;
         }
-        Commands::RemoveRoute4 { destination, mask } => {
+        Commands::RemoveRoute4 {
+            destination,
+            mask,
+            rid,
+        } => {
             let table = RouteData::load(RouteType::V4, &cli).await;
-            if let Some(idx) = table.lookup(IpAddr::V4(destination), mask) {
-                // Remove the entry from the subnet->idx table
-                let mut keyset_data: Vec<u8> = destination.octets().into();
+            if let Some(idx) = table.lookup(rid, IpAddr::V4(destination), mask)
+            {
+                // Remove the entry from the (rid, subnet)->idx table
+                let mut keyset_data: Vec<u8> = vec![rid];
+                keyset_data.extend_from_slice(&destination.octets());
                 keyset_data.push(mask);
 
                 send(
@@ -389,6 +417,7 @@ async fn main() {
             mask,
             port,
             nexthop,
+            rid,
         } => {
             let table = RouteData::load(RouteType::V6, &cli).await;
             let idx = table.find_available();
@@ -412,8 +441,9 @@ async fn main() {
             )
             .await;
 
-            // Now add cidr->idx to the index table
-            let mut keyset_data: Vec<u8> = destination.octets().into();
+            // Now add (rid, cidr)->idx to the index table
+            let mut keyset_data: Vec<u8> = vec![rid];
+            keyset_data.extend_from_slice(&destination.octets());
             keyset_data.push(mask);
 
             // Hardcoded slot count.
@@ -431,11 +461,17 @@ async fn main() {
             )
             .await;
         }
-        Commands::RemoveRoute6 { destination, mask } => {
+        Commands::RemoveRoute6 {
+            destination,
+            mask,
+            rid,
+        } => {
             let table = RouteData::load(RouteType::V6, &cli).await;
-            if let Some(idx) = table.lookup(IpAddr::V6(destination), mask) {
-                // Remove the entry from the subnet->idx table
-                let mut keyset_data: Vec<u8> = destination.octets().into();
+            if let Some(idx) = table.lookup(rid, IpAddr::V6(destination), mask)
+            {
+                // Remove the entry from the (rid, subnet)->idx table
+                let mut keyset_data: Vec<u8> = vec![rid];
+                keyset_data.extend_from_slice(&destination.octets());
                 keyset_data.push(mask);
 
                 send(
@@ -595,15 +631,20 @@ async fn main() {
             .await;
         }
 
-        Commands::AddAddress6 { address } => {
+        Commands::AddAddress6 { address, rid } => {
             let mut keyset_data: Vec<u8> = address.octets().into();
             keyset_data.reverse();
+            let (action, parameter_data) = if rid == 0 {
+                ("local", Vec::new())
+            } else {
+                ("local_rid", vec![rid])
+            };
             send(
                 ManagementRequest::TableAdd(TableAdd {
                     table: LOCAL_V6.into(),
-                    action: "local".into(),
+                    action: action.into(),
                     keyset_data,
-                    ..Default::default()
+                    parameter_data,
                 }),
                 &cli,
             )
@@ -861,7 +902,16 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
     println!("local v6:");
     for e in table.get(LOCAL_V6).unwrap() {
         if let Some(a) = get_addr(&e.keyset_data, false) {
-            println!("{a}")
+            if e.action_id == "local_rid" {
+                let rid = e
+                    .parameter_data
+                    .first()
+                    .map(|r| r.to_string())
+                    .unwrap_or_else(|| "?".into());
+                println!("{a} (rid {rid})")
+            } else {
+                println!("{a}")
+            }
         }
     }
     println!("local v4:");
@@ -873,8 +923,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
 
     println!("router v6_idx:");
     for e in table.get(ROUTER_V6_IDX).unwrap() {
-        let tgt = match get_addr_subnet(&e.keyset_data) {
-            Some((a, m)) => format!("{a}/{m}"),
+        let tgt = match get_rid_addr_subnet(&e.keyset_data) {
+            Some((rid, a, m)) => format!("rid {rid}: {a}/{m}"),
             None => "?".into(),
         };
         let idx = match get_idx_slots(&e.parameter_data) {
@@ -908,8 +958,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
 
     println!("router v4_idx:");
     for e in table.get(ROUTER_V4_IDX).unwrap() {
-        let tgt = match get_addr_subnet(&e.keyset_data) {
-            Some((a, m)) => format!("{a}/{m}"),
+        let tgt = match get_rid_addr_subnet(&e.keyset_data) {
+            Some((rid, a, m)) => format!("rid {rid}: {a}/{m}"),
             None => "?".into(),
         };
         let idx = match get_idx_slots(&e.parameter_data) {
@@ -1149,6 +1199,17 @@ fn get_addr_subnet(data: &[u8]) -> Option<(IpAddr, u8)> {
         17 => Some((get_addr(&data[..16], true)?, data[16])),
         _ => {
             println!("expected [address, subnet], found: {data:x?}");
+            None
+        }
+    }
+}
+
+fn get_rid_addr_subnet(data: &[u8]) -> Option<(u8, IpAddr, u8)> {
+    match data.len() {
+        6 => Some((data[0], get_addr(&data[1..5], true)?, data[5])),
+        18 => Some((data[0], get_addr(&data[1..17], true)?, data[17])),
+        _ => {
+            println!("expected [rid, address, subnet], found: {data:x?}");
             None
         }
     }

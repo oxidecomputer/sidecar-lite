@@ -1950,7 +1950,6 @@ dependencies = [
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#077d5339d64ef3583147094142e75f05fc64fd1c"
 dependencies = [
  "colored",
  "regex",
@@ -1959,7 +1958,6 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#077d5339d64ef3583147094142e75f05fc64fd1c"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1972,7 +1970,6 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#077d5339d64ef3583147094142e75f05fc64fd1c"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1985,7 +1982,6 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#077d5339d64ef3583147094142e75f05fc64fd1c"
 dependencies = [
  "bitvec",
  "num",
@@ -3286,7 +3282,6 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#077d5339d64ef3583147094142e75f05fc64fd1c"
 dependencies = [
  "anyhow",
  "bitvec",
