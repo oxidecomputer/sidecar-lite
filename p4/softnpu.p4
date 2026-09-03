@@ -9,6 +9,9 @@ struct ingress_metadata_t {
     bit<16> port;
     bit<16> nat_id;
     bit<16> path_idx;
+    // Logical router performing the route lookup; 0 is the default router.
+    // Set when a packet arrives on a non-default router's tunnel endpoint.
+    bit<8> router_id;
     bool forward_needed;
     bool lldp;
 
