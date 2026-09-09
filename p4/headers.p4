@@ -1,4 +1,4 @@
-// Copyright 2025 Oxide Computer Company
+// Copyright 2026 Oxide Computer Company
 
 header sidecar_h {
     bit<8> sc_code;
@@ -96,7 +96,7 @@ header geneve_opt_h {
 }
 
 header oxg_opt_multicast_h {
-    bit<2> replication;
+    bit<2> mcast_tag;
     bit<30> reserved;
 }
 

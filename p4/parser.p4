@@ -1,4 +1,4 @@
-// Copyright 2024 Oxide Computer Company
+// Copyright 2026 Oxide Computer Company
 
 parser parse(
     packet_in pkt,
@@ -46,6 +46,29 @@ parser parse(
 
     state ipv6 {
         pkt.extract(hdr.ipv6);
+        if (hdr.ipv6.dst[127:120] == 8w0xff) { transition ipv6_mcast; }
+        transition ipv6_proto;
+    }
+
+    state ipv6_mcast {
+        // Interface-local (ff01) must not be forwarded.
+        if (hdr.ipv6.dst[127:112] == 16w0xff01) { transition reject; }
+
+        // Link-local (ff02) is forwarded to scrimlet.
+        // Allow hop_limit == 1 (link-local scope) but still reject expired
+        // packets.
+        if (hdr.ipv6.dst[127:112] == 16w0xff02) {
+            if (hdr.ipv6.hop_limit == 8w0) { transition reject; }
+            transition ipv6_proto;
+        }
+
+        // Non-link-local multicast requires hop_limit > 1.
+        if (hdr.ipv6.hop_limit == 8w0) { transition reject; }
+        if (hdr.ipv6.hop_limit == 8w1) { transition reject; }
+        transition ipv6_proto;
+    }
+
+    state ipv6_proto {
         if (hdr.ipv6.next_hdr == 8w0xdd) { transition ddm; }
         if (hdr.ipv6.next_hdr == 8w58)   { transition icmp; }
         if (hdr.ipv6.next_hdr == 8w17)   { transition udp; }
@@ -82,6 +105,18 @@ parser parse(
 
     state ipv4 {
         pkt.extract(hdr.ipv4);
+        if (hdr.ipv4.dst[31:28] == 4w0xe) { transition ipv4_mcast; }
+        transition ipv4_proto;
+    }
+
+    state ipv4_mcast {
+        // Multicast with TTL <= 1 must not be forwarded (RFC 1112).
+        if (hdr.ipv4.ttl == 8w0) { transition reject; }
+        if (hdr.ipv4.ttl == 8w1) { transition reject; }
+        transition ipv4_proto;
+    }
+
+    state ipv4_proto {
         if (hdr.ipv4.protocol == 8w17) { transition udp; }
         if (hdr.ipv4.protocol == 8w6)  { transition tcp; }
         if (hdr.ipv4.protocol == 8w1)  { transition icmp; }
