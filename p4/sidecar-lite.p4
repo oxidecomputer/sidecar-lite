@@ -92,8 +92,6 @@ control ingress(
             // ICMP unreachable.
             if (egress.port_bitmap == 128w0) {
                 egress.drop = true;
-            } else {
-                mcast_rep.replicate(egress.port_bitmap);
             }
         } else {
             router.apply(hdr, ingress, egress);
@@ -105,6 +103,8 @@ control ingress(
             // unicast only.
             if (ingress.port == egress.port) { egress.drop = true; }
         }
+
+        mcast_rep.replicate(egress.port_bitmap);
     }
 
     action decap_geneve() {
