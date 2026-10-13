@@ -18,7 +18,7 @@ macaddr.workspace = true
 
 [dependencies.softnpu]
 git = "https://github.com/oxidecomputer/softnpu"
-branch = "main"
+branch = "zl/multicast"
 [dependencies.softnpu-client]
 git = "https://github.com/oxidecomputer/softnpu"
-branch = "main"
+branch = "zl/multicast"
