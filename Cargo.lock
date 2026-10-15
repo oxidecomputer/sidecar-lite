@@ -207,9 +207,9 @@ checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
 name = "camino"
-version = "1.2.2"
+version = "1.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e629a66d692cb9ff1a1c664e41771b3dcaf961985a9774c0eb0bd1b51cf60a48"
+checksum = "bbbad30e4b4c14a39e3cc8aed085a12a327257c316619c93581e017bc52be591"
 dependencies = [
  "serde_core",
 ]
@@ -483,9 +483,9 @@ dependencies = [
 
 [[package]]
 name = "curl"
-version = "0.4.49"
+version = "0.4.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79fc3b6dd0b87ba36e565715bf9a2ced221311db47bd18011676f24a6066edbc"
+checksum = "ef3ce06df3ac230a4f5c91bfd3e3961cd66f177bd9964c87deb3cce59a54fb7b"
 dependencies = [
  "curl-sys",
  "libc",
@@ -498,9 +498,9 @@ dependencies = [
 
 [[package]]
 name = "curl-sys"
-version = "0.4.88+curl-8.20.0"
+version = "0.4.91+curl-8.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "644816de6547255eff4e491a1dda1c19b7237f00b62a61e6e64859ce4f2906d0"
+checksum = "cd39579123e45bf762716bb893d43886ed1cabe6289455be29a4f1d4e37afb06"
 dependencies = [
  "cc",
  "libc",
@@ -508,7 +508,7 @@ dependencies = [
  "openssl-sys",
  "pkg-config",
  "vcpkg",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1950,7 +1950,7 @@ dependencies = [
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#077d5339d64ef3583147094142e75f05fc64fd1c"
+source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fmulticast#3d7c18bd4d243f19bc1702f20b990dba09c35e95"
 dependencies = [
  "colored",
  "regex",
@@ -1959,7 +1959,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#077d5339d64ef3583147094142e75f05fc64fd1c"
+source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fmulticast#3d7c18bd4d243f19bc1702f20b990dba09c35e95"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1972,7 +1972,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#077d5339d64ef3583147094142e75f05fc64fd1c"
+source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fmulticast#3d7c18bd4d243f19bc1702f20b990dba09c35e95"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1985,7 +1985,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#077d5339d64ef3583147094142e75f05fc64fd1c"
+source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fmulticast#3d7c18bd4d243f19bc1702f20b990dba09c35e95"
 dependencies = [
  "bitvec",
  "num",
@@ -3103,7 +3103,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#1fc6c6e12370f158b036fb9d2247424d218e3f88"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=zl%2Fmulticast#26615d82bdad8dd9928239b88896864f83aab326"
 dependencies = [
  "p4rs",
  "serde",
@@ -3114,7 +3114,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#1fc6c6e12370f158b036fb9d2247424d218e3f88"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=zl%2Fmulticast#26615d82bdad8dd9928239b88896864f83aab326"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -3286,7 +3286,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#077d5339d64ef3583147094142e75f05fc64fd1c"
+source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fmulticast#3d7c18bd4d243f19bc1702f20b990dba09c35e95"
 dependencies = [
  "anyhow",
  "bitvec",

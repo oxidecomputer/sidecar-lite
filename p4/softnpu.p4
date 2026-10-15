@@ -1,4 +1,4 @@
-// Copyright 2022 Oxide Computer Company
+// Copyright 2026 Oxide Computer Company
 
 #include <headers.p4>
 
@@ -11,6 +11,8 @@ struct ingress_metadata_t {
     bit<16> path_idx;
     bool forward_needed;
     bool lldp;
+    bool allow_source_mcast;
+    bool mcast_decap;
 
     // Used as mutable scratchpad shared between parser states.
     bit<6> geneve_chunks;
@@ -24,6 +26,19 @@ struct egress_metadata_t {
     bit<12> vlan_id;
     bool drop;
     bool broadcast;
+    // Merged replication bitmap, which is read by the pipeline after ingress.
+    //
+    // This is `external_bitmap | underlay_bitmap`. Both inputs stay as their
+    // own fields, making post-suppression state inspectable.
+    bit<128> port_bitmap;
+    bit<128> external_bitmap;
+    bit<128> underlay_bitmap;
+    bit<16> rid;
+    bit<128> decap_bitmap;
+    bool decap_has_vlan;
+    bit<12> decap_vlan_id;
+    bit<8> port_number;
+    bool port_number_valid;
 }
 
 extern Checksum {
