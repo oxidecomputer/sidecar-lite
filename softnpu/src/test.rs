@@ -88,7 +88,7 @@ fn pipeline_init(pipeline: &mut main_pipeline) {
     );
 
     // boundary services loopback ip entry
-    let (key_buf, param_buf) = local6_entry("fd00:99::1");
+    let (key_buf, param_buf) = local6_entry(0, "fd00:99::1");
     pipeline.add_ingress_local_local_v6_entry("local", &key_buf, &param_buf, 0);
 
     // resolver entry for upstream gateway
@@ -576,9 +576,21 @@ fn router_idx_entry(
     idx: u16,
     slots: u8,
 ) -> (Vec<u8>, Vec<u8>) {
-    let mut key_buf = match dst.parse().unwrap() {
-        IpAddr::V4(a) => a.octets().to_vec(),
-        IpAddr::V6(a) => a.octets().to_vec(),
+    router_idx_entry_rid(0, dst, prefix_len, idx, slots)
+}
+
+// Create an entry for the multipath cidr -> index table of a specific router
+fn router_idx_entry_rid(
+    rid: u8,
+    dst: &str,
+    prefix_len: u8,
+    idx: u16,
+    slots: u8,
+) -> (Vec<u8>, Vec<u8>) {
+    let mut key_buf = vec![rid];
+    match dst.parse().unwrap() {
+        IpAddr::V4(a) => key_buf.extend_from_slice(&a.octets()),
+        IpAddr::V6(a) => key_buf.extend_from_slice(&a.octets()),
     };
     key_buf.push(prefix_len);
 
@@ -633,12 +645,12 @@ fn nat4_entry(
     (key_buf, param_buf)
 }
 
-fn local6_entry(addr: &str) -> (Vec<u8>, Vec<u8>) {
+fn local6_entry(rid: u8, addr: &str) -> (Vec<u8>, Vec<u8>) {
     let addr: Ipv6Addr = addr.parse().unwrap();
     let mut key_buf = addr.octets().to_vec();
     key_buf.reverse();
 
-    (key_buf, Vec::new())
+    (key_buf, vec![rid])
 }
 
 fn resolver4_entry(addr: &str, mac: [u8; 6]) -> (Vec<u8>, Vec<u8>) {
@@ -662,4 +674,122 @@ fn mac_rewrite_entry(port: u16, mac: [u8; 6]) -> (Vec<u8>, Vec<u8>) {
     let param_buf = mac.to_vec();
 
     (key_buf, param_buf)
+}
+
+// Build a geneve-encapped ipv4 packet destined to the given TEP address,
+// returning the outer ipv6 packet bytes.
+fn geneve_encapped_v4(tep: &str, inner_dst_addr: &str) -> Vec<u8> {
+    let mut n = 8;
+    let mut icmp_data: Vec<u8> = vec![0; n];
+    let mut icmp = MutableIcmpPacket::new(&mut icmp_data).unwrap();
+    icmp.set_payload([0x04, 0x17, 0x00, 0x00].as_slice());
+
+    n += 20;
+    let mut inner_ip_data: Vec<u8> = vec![0; n];
+    let inner_src: Ipv4Addr = "1.2.3.4".parse().unwrap();
+    let inner_dst: Ipv4Addr = inner_dst_addr.parse().unwrap();
+    let mut inner_ip = MutableIpv4Packet::new(&mut inner_ip_data).unwrap();
+    inner_ip.set_version(4);
+    inner_ip.set_source(inner_src);
+    inner_ip.set_header_length(5);
+    inner_ip.set_destination(inner_dst);
+    inner_ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
+    inner_ip.set_total_length(20 + icmp_data.len() as u16);
+    inner_ip.set_payload(&icmp_data);
+
+    n += 14;
+    let mut eth_data: Vec<u8> = vec![0; n];
+    let mut eth = MutableEthernetPacket::new(&mut eth_data).unwrap();
+    eth.set_destination(MacAddr::new(0x11, 0x11, 0x11, 0x22, 0x22, 0x22));
+    eth.set_source(MacAddr::new(0x33, 0x33, 0x33, 0x44, 0x44, 0x44));
+    eth.set_ethertype(EtherType(0x0800));
+    eth.set_payload(&inner_ip_data);
+
+    n += 8;
+    let mut geneve_data: Vec<u8> =
+        vec![0x00, 0x00, 0x65, 0x58, 0x11, 0x11, 0x11, 0x00];
+    geneve_data.extend_from_slice(&eth_data);
+
+    n += 8;
+    let mut udp_data: Vec<u8> = vec![0; n];
+    let mut udp = MutableUdpPacket::new(&mut udp_data).unwrap();
+    udp.set_source(100);
+    udp.set_destination(6081);
+    udp.set_checksum(0x1701);
+    udp.set_payload(&geneve_data);
+
+    n += 40;
+    let mut ip_data: Vec<u8> = vec![0; n];
+    let mut ip = MutableIpv6Packet::new(&mut ip_data).unwrap();
+    ip.set_version(6);
+    ip.set_source("fd00:1::1".parse::<Ipv6Addr>().unwrap());
+    ip.set_destination(tep.parse::<Ipv6Addr>().unwrap());
+    ip.set_payload_length(udp_data.len() as u16);
+    ip.set_payload(&udp_data);
+    ip.set_next_header(IpNextHeaderProtocol::new(17));
+
+    ip_data
+}
+
+#[test]
+fn router_id_selects_route_table() -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(3);
+    pipeline_init(&mut pipeline);
+
+    // router 0: a more specific path for 8.8.8.0/24, reusing the slot 2
+    // forwarding entry (gw=1.2.3.1, port=1)
+    let (key_buf, param_buf) = router_idx_entry("8.8.8.0", 24, 2, 1);
+    pipeline
+        .add_ingress_router_v4_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+
+    // router 2: tunnel endpoint fd00:99::2
+    let (key_buf, param_buf) = local6_entry(2, "fd00:99::2");
+    pipeline.add_ingress_local_local_v6_entry("local", &key_buf, &param_buf, 0);
+
+    // router 2: a single path for 0.0.0.0/0 pointing at data in slot 4
+    let (key_buf, param_buf) = router_idx_entry_rid(2, "0.0.0.0", 0, 4, 1);
+    pipeline
+        .add_ingress_router_v4_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+
+    // At slot 4, add a forwarding entry gw=1.2.3.9, port=2
+    let (key_buf, param_buf) = router_forward_entry(4, "1.2.3.9", 2);
+    pipeline.add_ingress_router_v4_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
+
+    // resolver entry for router 2's gateway
+    let (key_buf, param_buf) =
+        resolver4_entry("1.2.3.9", [8, 9, 10, 11, 12, 14]);
+    pipeline.add_ingress_resolver_resolver_v4_entry(
+        "rewrite_dst",
+        &key_buf,
+        &param_buf,
+        0,
+    );
+
+    // mac rewrite table
+    let (key_buf, param_buf) = mac_rewrite_entry(2, [1, 2, 3, 4, 5, 7]);
+    pipeline
+        .add_ingress_mac_mac_rewrite_entry("rewrite", &key_buf, &param_buf, 0);
+
+    let mut npu = SoftNpu::new(3, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+    let phy2 = npu.phy(2);
+
+    npu.run();
+
+    // The same inner destination to each tunnel endpoint. Router 0's /24
+    // would win on prefix length if the lookup ignored the router id.
+    let pkt = geneve_encapped_v4("fd00:99::1", "8.8.8.8");
+    phy0.send(&[TxFrame::new(phy1.mac, 0x86dd, &pkt)])?;
+    let fs = phy1.recv();
+    assert_eq!(fs.len(), 1);
+
+    let pkt = geneve_encapped_v4("fd00:99::2", "8.8.8.8");
+    phy0.send(&[TxFrame::new(phy2.mac, 0x86dd, &pkt)])?;
+    let fs = phy2.recv();
+    assert_eq!(fs.len(), 1);
+
+    Ok(())
 }
