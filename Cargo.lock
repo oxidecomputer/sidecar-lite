@@ -1950,7 +1950,7 @@ dependencies = [
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fmulticast#35bca4f7d8ff5ccdb0fe443dc718699f0456153e"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
 dependencies = [
  "colored",
  "regex",
@@ -1959,7 +1959,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fmulticast#35bca4f7d8ff5ccdb0fe443dc718699f0456153e"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1972,7 +1972,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fmulticast#35bca4f7d8ff5ccdb0fe443dc718699f0456153e"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1985,7 +1985,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fmulticast#35bca4f7d8ff5ccdb0fe443dc718699f0456153e"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
 dependencies = [
  "bitvec",
  "num",
@@ -3103,7 +3103,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=zl%2Fmulticast#26615d82bdad8dd9928239b88896864f83aab326"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#77ba891f8b8c2288ac8d01d3c372892ad1111592"
 dependencies = [
  "p4rs",
  "serde",
@@ -3114,7 +3114,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=zl%2Fmulticast#26615d82bdad8dd9928239b88896864f83aab326"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=main#77ba891f8b8c2288ac8d01d3c372892ad1111592"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -3286,7 +3286,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fmulticast#35bca4f7d8ff5ccdb0fe443dc718699f0456153e"
+source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
 dependencies = [
  "anyhow",
  "bitvec",
