@@ -261,24 +261,12 @@ enum Commands {
         vni: u32,
         /// Inner-packet L2 destination MAC.
         mac: MacAddr6,
-        /// VLAN ID.
-        ///
-        /// When set, this programs the tagged table; otherwise, this is
-        /// untagged.
-        #[arg(long)]
-        vid: Option<u16>,
     },
 
     /// Remove an IPv4 multicast NAT entry.
     RemoveMcastNat4 {
         /// Outer multicast group address.
         dst: Ipv4Addr,
-        /// VLAN ID.
-        ///
-        /// When set, this targets the tagged table; otherwise, this is
-        /// untagged.
-        #[arg(long)]
-        vid: Option<u16>,
     },
 
     /// Add an IPv6 multicast NAT entry.
@@ -291,24 +279,12 @@ enum Commands {
         vni: u32,
         /// Inner-packet L2 destination MAC.
         mac: MacAddr6,
-        /// VLAN ID.
-        ///
-        /// When set, this programs the tagged table; otherwise, this is
-        /// untagged.
-        #[arg(long)]
-        vid: Option<u16>,
     },
 
     /// Remove an IPv6 multicast NAT entry.
     RemoveMcastNat6 {
         /// Outer multicast group address.
         dst: Ipv6Addr,
-        /// VLAN ID.
-        ///
-        /// When set, this targets the tagged table; otherwise, this is
-        /// untagged.
-        #[arg(long)]
-        vid: Option<u16>,
     },
 
     /// Add a multicast egress decap-ports entry.
@@ -397,8 +373,6 @@ const MCAST_SOURCE_FILTER_V4: &str = "ingress.mcast.mcast_source_filter_v4";
 const MCAST_SOURCE_FILTER_V6: &str = "ingress.mcast.mcast_source_filter_v6";
 const NAT_V4_MCAST: &str = "ingress.nat.nat_v4_mcast";
 const NAT_V6_MCAST: &str = "ingress.nat.nat_v6_mcast";
-const NAT_V4_MCAST_UNTAGGED: &str = "ingress.nat.nat_v4_mcast_untagged";
-const NAT_V6_MCAST_UNTAGGED: &str = "ingress.nat.nat_v6_mcast_untagged";
 const DECAP_PORTS: &str = "egress.tbl_decap_ports";
 const MCAST_SRC_MAC: &str = "egress.mcast_src_mac";
 const ASIC_ID_TO_PORT: &str = "egress.asic_id_to_port";
@@ -1116,7 +1090,6 @@ async fn main() {
             target,
             vni,
             ref mac,
-            vid,
         } => {
             if vni >= 1 << 24 {
                 println!("vni too big, only 24 bits");
@@ -1125,18 +1098,12 @@ async fn main() {
 
             let mut keyset_data: Vec<u8> = dst.octets().into();
             keyset_data.reverse();
-            let (keyset_data, table) = mcast_nat_table(
-                keyset_data,
-                vid,
-                NAT_V4_MCAST,
-                NAT_V4_MCAST_UNTAGGED,
-            );
 
             let parameter_data = forward_to_sled_param(&target, vni, mac);
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
-                    table: table.into(),
+                    table: NAT_V4_MCAST.into(),
                     action: "forward_to_sled".into(),
                     keyset_data,
                     parameter_data,
@@ -1146,19 +1113,13 @@ async fn main() {
             .await;
         }
 
-        Commands::RemoveMcastNat4 { dst, vid } => {
+        Commands::RemoveMcastNat4 { dst } => {
             let mut keyset_data: Vec<u8> = dst.octets().into();
             keyset_data.reverse();
-            let (keyset_data, table) = mcast_nat_table(
-                keyset_data,
-                vid,
-                NAT_V4_MCAST,
-                NAT_V4_MCAST_UNTAGGED,
-            );
 
             send(
                 ManagementRequest::TableRemove(TableRemove {
-                    table: table.into(),
+                    table: NAT_V4_MCAST.into(),
                     keyset_data,
                 }),
                 &cli,
@@ -1171,7 +1132,6 @@ async fn main() {
             target,
             vni,
             ref mac,
-            vid,
         } => {
             if vni >= 1 << 24 {
                 println!("vni too big, only 24 bits");
@@ -1180,18 +1140,12 @@ async fn main() {
 
             let mut keyset_data: Vec<u8> = dst.octets().into();
             keyset_data.reverse();
-            let (keyset_data, table) = mcast_nat_table(
-                keyset_data,
-                vid,
-                NAT_V6_MCAST,
-                NAT_V6_MCAST_UNTAGGED,
-            );
 
             let parameter_data = forward_to_sled_param(&target, vni, mac);
 
             send(
                 ManagementRequest::TableAdd(TableAdd {
-                    table: table.into(),
+                    table: NAT_V6_MCAST.into(),
                     action: "forward_to_sled".into(),
                     keyset_data,
                     parameter_data,
@@ -1201,19 +1155,13 @@ async fn main() {
             .await;
         }
 
-        Commands::RemoveMcastNat6 { dst, vid } => {
+        Commands::RemoveMcastNat6 { dst } => {
             let mut keyset_data: Vec<u8> = dst.octets().into();
             keyset_data.reverse();
-            let (keyset_data, table) = mcast_nat_table(
-                keyset_data,
-                vid,
-                NAT_V6_MCAST,
-                NAT_V6_MCAST_UNTAGGED,
-            );
 
             send(
                 ManagementRequest::TableRemove(TableRemove {
-                    table: table.into(),
+                    table: NAT_V6_MCAST.into(),
                     keyset_data,
                 }),
                 &cli,
@@ -1424,29 +1372,6 @@ fn validate_vlan(id: u16) {
     if !(1..=4094).contains(&id) {
         println!("invalid vlan id {id}, must be in 1..=4094");
         std::process::exit(1);
-    }
-}
-
-/// Finish a multicast NAT key and select its table. The input `keyset` holds
-/// the byte-reversed destination. For tagged entries the little-endian `vid` is
-/// appended and the tagged table is returned, otherwise the key is unchanged
-/// and the untagged table is returned.
-///
-/// Shared by the v4/v6 add and remove handlers, which differ only in their
-/// table constants.
-fn mcast_nat_table(
-    mut keyset: Vec<u8>,
-    vid: Option<u16>,
-    tagged: &'static str,
-    untagged: &'static str,
-) -> (Vec<u8>, &'static str) {
-    match vid {
-        Some(v) => {
-            validate_vlan(v);
-            keyset.extend_from_slice(&v.to_le_bytes());
-            (keyset, tagged)
-        }
-        None => (keyset, untagged),
     }
 }
 
@@ -1748,17 +1673,10 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
         }
     }
 
-    for (name, tagged, untagged) in [
-        ("v4", NAT_V4_MCAST, NAT_V4_MCAST_UNTAGGED),
-        ("v6", NAT_V6_MCAST, NAT_V6_MCAST_UNTAGGED),
-    ] {
-        println!("nat {name} mcast (tagged):");
-        for e in table.get(tagged).unwrap() {
-            dump_nat_mcast_entry(e, true);
-        }
-        println!("nat {name} mcast (untagged):");
-        for e in table.get(untagged).unwrap() {
-            dump_nat_mcast_entry(e, false);
+    for (name, nat_table) in [("v4", NAT_V4_MCAST), ("v6", NAT_V6_MCAST)] {
+        println!("nat {name} mcast:");
+        for e in table.get(nat_table).unwrap() {
+            dump_nat_mcast_entry(e);
         }
     }
 
@@ -1808,23 +1726,8 @@ fn dump_tables(table: &BTreeMap<String, Vec<TableEntry>>) {
 }
 
 /// Print one nat mcast entry.
-///
-/// Tagged entries carry a trailing little-endian vid in the key after
-/// the byte-reversed multicast destination.
-fn dump_nat_mcast_entry(e: &TableEntry, tagged: bool) {
-    let keyset = &e.keyset_data;
-    let (addr_len, vid) = match (keyset.len(), tagged) {
-        (6, true) => (4, Some(u16::from_le_bytes([keyset[4], keyset[5]]))),
-        (18, true) => (16, Some(u16::from_le_bytes([keyset[16], keyset[17]]))),
-        (4, false) => (4, None),
-        (16, false) => (16, None),
-        _ => {
-            println!("? {keyset:x?}");
-            return;
-        }
-    };
-
-    let dst = get_addr(&keyset[..addr_len], false)
+fn dump_nat_mcast_entry(e: &TableEntry) {
+    let dst = get_addr(&e.keyset_data, false)
         .map(|a| a.to_string())
         .unwrap_or("?".into());
 
@@ -1836,10 +1739,7 @@ fn dump_nat_mcast_entry(e: &TableEntry, tagged: bool) {
         None => "?".into(),
     };
 
-    match vid {
-        Some(v) => println!("{dst} vid: {v} -> {target}"),
-        None => println!("{dst} -> {target}"),
-    }
+    println!("{dst} -> {target}");
 }
 
 /// Decode a 128-bit (16-byte) little-endian port bitmap back into the list of
@@ -2163,33 +2063,6 @@ mod tests {
         let param = forward_to_sled_param(&target, vni as u32, &MAC);
         assert_eq!(param.len(), 25);
         assert_eq!(param, expected);
-    }
-
-    #[test]
-    fn mcast_nat_table_matches_sidecar() {
-        let dst: Ipv4Addr = "238.1.1.1".parse().unwrap();
-        let mut reversed: Vec<u8> = dst.octets().into();
-        reversed.reverse();
-        let dst_key = u32::from(dst).to_le_bytes();
-
-        let (key, table) = mcast_nat_table(
-            reversed.clone(),
-            None,
-            NAT_V4_MCAST,
-            NAT_V4_MCAST_UNTAGGED,
-        );
-        assert_eq!(table, NAT_V4_MCAST_UNTAGGED);
-        assert_eq!(key, dst_key);
-
-        let (key, table) = mcast_nat_table(
-            reversed,
-            Some(300),
-            NAT_V4_MCAST,
-            NAT_V4_MCAST_UNTAGGED,
-        );
-        assert_eq!(table, NAT_V4_MCAST);
-        assert_eq!(key[..4], dst_key);
-        assert_eq!(key[4..], [0x2c, 0x01]);
     }
 
     #[test]

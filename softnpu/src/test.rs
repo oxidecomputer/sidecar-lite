@@ -1204,8 +1204,8 @@ fn mcast_ttl_pipeline() -> main_pipeline {
     let mac = [0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a];
 
     let (key_buf, param_buf) =
-        nat_mcast_v4_untagged_entry("238.1.1.1", UNDERLAY_MCAST_DST, 77, mac);
-    pipeline.add_ingress_nat_nat_v4_mcast_untagged_entry(
+        nat_mcast_v4_entry("238.1.1.1", UNDERLAY_MCAST_DST, 77, mac);
+    pipeline.add_ingress_nat_nat_v4_mcast_entry(
         "forward_to_sled",
         &key_buf,
         &param_buf,
@@ -1222,8 +1222,8 @@ fn mcast_ttl_pipeline() -> main_pipeline {
 
     for group in ["ff0e::1", "ff01::1"] {
         let (key_buf, param_buf) =
-            nat_mcast_v6_untagged_entry(group, UNDERLAY_MCAST_DST, 77, mac);
-        pipeline.add_ingress_nat_nat_v6_mcast_untagged_entry(
+            nat_mcast_v6_entry(group, UNDERLAY_MCAST_DST, 77, mac);
+        pipeline.add_ingress_nat_nat_v6_mcast_entry(
             "forward_to_sled",
             &key_buf,
             &param_buf,
@@ -1590,19 +1590,15 @@ fn assert_mcast_nat_encap(
     Ok(())
 }
 
-// An untagged IPv4 end-user multicast packet hits `nat_v4_mcast_untagged` and
+// An untagged IPv4 end-user multicast packet hits `nat_v4_mcast` and
 // is NAT-encapsulated toward its underlay group (here, the fd00:1::/64 route
 // stands in for the underlay target).
 #[test]
 fn mcast_nat_v4_untagged() -> Result<(), anyhow::Error> {
     let install = |p: &mut main_pipeline| {
-        let (key_buf, param_buf) = nat_mcast_v4_untagged_entry(
-            "224.1.1.1",
-            "fd00:1::1",
-            4444,
-            [0x0a; 6],
-        );
-        p.add_ingress_nat_nat_v4_mcast_untagged_entry(
+        let (key_buf, param_buf) =
+            nat_mcast_v4_entry("224.1.1.1", "fd00:1::1", 4444, [0x0a; 6]);
+        p.add_ingress_nat_nat_v4_mcast_entry(
             "forward_to_sled",
             &key_buf,
             &param_buf,
@@ -1613,13 +1609,13 @@ fn mcast_nat_v4_untagged() -> Result<(), anyhow::Error> {
     assert_mcast_nat_encap(install, ETHERTYPE_IPV4, &l3, 4444)
 }
 
-// A VLAN-tagged IPv4 end-user multicast packet hits `nat_v4_mcast` on the
-// matching (dst, vid) key and is NAT-encapsulated.
+// A VLAN-tagged IPv4 end-user multicast packet hits `nat_v4_mcast` based on
+// its destination, whatever the VLAN is, and is NAT-encapsulated.
 #[test]
 fn mcast_nat_v4_tagged() -> Result<(), anyhow::Error> {
     let install = |p: &mut main_pipeline| {
         let (key_buf, param_buf) =
-            nat_mcast_v4_entry("224.2.2.2", 10, "fd00:1::1", 5555, [0x0a; 6]);
+            nat_mcast_v4_entry("224.2.2.2", "fd00:1::1", 5555, [0x0a; 6]);
         p.add_ingress_nat_nat_v4_mcast_entry(
             "forward_to_sled",
             &key_buf,
@@ -1632,66 +1628,14 @@ fn mcast_nat_v4_tagged() -> Result<(), anyhow::Error> {
     assert_mcast_nat_encap(install, ETHERTYPE_VLAN, &frame, 5555)
 }
 
-// A VLAN-tagged packet with a VLAN does not match the programmed group misses
-// `nat_v4_mcast` and is not NAT-encapsulated to the wrong underlay group.
-#[test]
-fn mcast_nat_v4_wrong_vlan_miss() -> Result<(), anyhow::Error> {
-    let mut pipeline = main_pipeline::new(2);
-    pipeline_init(&mut pipeline);
-
-    let (key_buf, param_buf) = nat_mcast_v4_entry(
-        "224.3.3.3",
-        10,
-        "fd00:1::1",
-        5555,
-        [0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a],
-    );
-    pipeline.add_ingress_nat_nat_v4_mcast_entry(
-        "forward_to_sled",
-        &key_buf,
-        &param_buf,
-        0,
-    );
-
-    let mut npu = SoftNpu::new(2, pipeline, false);
-    let phy0 = npu.phy(0);
-    let phy1 = npu.phy(1);
-    npu.run();
-
-    // Group programmed on VLAN 10, packet arrives on VLAN 20.
-    let l3 = ipv4_mcast_l3("10.0.0.1", "224.3.3.3");
-    let frame = vlan_tagged(20, ETHERTYPE_IPV4, &l3);
-    phy1.send(&[TxFrame::new(
-        l2_dst(phy0.mac, ETHERTYPE_VLAN, &frame),
-        ETHERTYPE_VLAN,
-        &frame,
-    )])?;
-
-    // A sentinel sent from the probe's ingress port and routed to port 0
-    // confirms the pipeline drained, while a second frame on port 0 would be
-    // the mismatched packet NAT-encapsulated.
-    phy1.send(&[TxFrame::new(phy0.mac, ETHERTYPE_IPV6, &sentinel_v6())])?;
-    let leaked_pkts = recv_until_sentinel(&phy0, "sentinel to drain pipeline");
-    assert!(
-        leaked_pkts.is_empty(),
-        "wrong-VLAN multicast packet was NAT-encapsulated",
-    );
-
-    Ok(())
-}
-
-// An untagged IPv6 end-user multicast packet hits `nat_v6_mcast_untagged` and
+// An untagged IPv6 end-user multicast packet hits `nat_v6_mcast` and
 // is NAT-encapsulated toward its underlay group.
 #[test]
 fn mcast_nat_v6_untagged() -> Result<(), anyhow::Error> {
     let install = |p: &mut main_pipeline| {
-        let (key_buf, param_buf) = nat_mcast_v6_untagged_entry(
-            "ff0e::1",
-            "fd00:1::1",
-            6666,
-            [0x0a; 6],
-        );
-        p.add_ingress_nat_nat_v6_mcast_untagged_entry(
+        let (key_buf, param_buf) =
+            nat_mcast_v6_entry("ff0e::1", "fd00:1::1", 6666, [0x0a; 6]);
+        p.add_ingress_nat_nat_v6_mcast_entry(
             "forward_to_sled",
             &key_buf,
             &param_buf,
@@ -1702,13 +1646,13 @@ fn mcast_nat_v6_untagged() -> Result<(), anyhow::Error> {
     assert_mcast_nat_encap(install, ETHERTYPE_IPV6, &l3, 6666)
 }
 
-// A VLAN-tagged IPv6 end-user multicast packet hits `nat_v6_mcast` on the
-// matching (dst, vid) key and is NAT-encapsulated.
+// A VLAN-tagged IPv6 end-user multicast packet hits `nat_v6_mcast` based on
+// its destination, whatever the VLAN is, and is NAT-encapsulated.
 #[test]
 fn mcast_nat_v6_tagged() -> Result<(), anyhow::Error> {
     let install = |p: &mut main_pipeline| {
         let (key_buf, param_buf) =
-            nat_mcast_v6_entry("ff0e::2", 10, "fd00:1::1", 7000, [0x0a; 6]);
+            nat_mcast_v6_entry("ff0e::2", "fd00:1::1", 7000, [0x0a; 6]);
         p.add_ingress_nat_nat_v6_mcast_entry(
             "forward_to_sled",
             &key_buf,
@@ -2085,13 +2029,13 @@ fn mcast_nat_v4_drops_bad_dst_mac() -> Result<(), anyhow::Error> {
     let mut pipeline = main_pipeline::new(2);
     pipeline_init(&mut pipeline);
 
-    let (key_buf, param_buf) = nat_mcast_v4_untagged_entry(
+    let (key_buf, param_buf) = nat_mcast_v4_entry(
         "224.1.1.1",
         "fd00:1::1",
         4444,
         [0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a],
     );
-    pipeline.add_ingress_nat_nat_v4_mcast_untagged_entry(
+    pipeline.add_ingress_nat_nat_v4_mcast_entry(
         "forward_to_sled",
         &key_buf,
         &param_buf,
@@ -3576,24 +3520,9 @@ fn forward_to_sled_param(target: &str, vni: u32, mac: [u8; 6]) -> Vec<u8> {
     param
 }
 
-// `nat_v4_mcast` entry, keyed on (ipv4.dst, vlan.vid).
+// `nat_v4_mcast` entry, which is keyed on (ipv4.dst).
 fn nat_mcast_v4_entry(
     dst: &str,
-    vid: u16,
-    target: &str,
-    vni: u32,
-    mac: [u8; 6],
-) -> (Vec<u8>, Vec<u8>) {
-    let dst: Ipv4Addr = dst.parse().unwrap();
-    let mut key_buf = dst.octets().to_vec();
-    key_buf.reverse();
-    key_buf.extend_from_slice(&vid.to_le_bytes());
-    (key_buf, forward_to_sled_param(target, vni, mac))
-}
-
-// `nat_v4_mcast_untagged` entry, keyed on (ipv4.dst).
-fn nat_mcast_v4_untagged_entry(
-    dst: &str,
     target: &str,
     vni: u32,
     mac: [u8; 6],
@@ -3604,23 +3533,8 @@ fn nat_mcast_v4_untagged_entry(
     (key_buf, forward_to_sled_param(target, vni, mac))
 }
 
-// `nat_v6_mcast` entry, keyed on (ipv6.dst, vlan.vid).
+// `nat_v6_mcast` entry, which is keyed on (ipv6.dst).
 fn nat_mcast_v6_entry(
-    dst: &str,
-    vid: u16,
-    target: &str,
-    vni: u32,
-    mac: [u8; 6],
-) -> (Vec<u8>, Vec<u8>) {
-    let dst: Ipv6Addr = dst.parse().unwrap();
-    let mut key_buf = dst.octets().to_vec();
-    key_buf.reverse();
-    key_buf.extend_from_slice(&vid.to_le_bytes());
-    (key_buf, forward_to_sled_param(target, vni, mac))
-}
-
-// `nat_v6_mcast_untagged` entry, which is keyed on (ipv6.dst).
-fn nat_mcast_v6_untagged_entry(
     dst: &str,
     target: &str,
     vni: u32,

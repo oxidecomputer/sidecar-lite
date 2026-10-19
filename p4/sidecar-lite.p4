@@ -308,41 +308,15 @@ control nat_ingress(
     }
 
     // Multicast NAT tables.
-    //
-    // These are keyed on both the destination address and VLAN ID.
-    //
-    // Packets with a mismatched VLAN miss the table and are not NAT'd
-    // to the wrong underlay group. VLAN header validity is checked
-    // inline in the apply block since x4c does not support isValid()
-    // as a table key field.
     table nat_v4_mcast {
         key = {
             hdr.ipv4.dst:   exact;
-            hdr.vlan.vid:   exact;
         }
         actions = { forward_to_sled; NoAction; }
         default_action = NoAction;
     }
 
     table nat_v6_mcast {
-        key = {
-            hdr.ipv6.dst:   exact;
-            hdr.vlan.vid:   exact;
-        }
-        actions = { forward_to_sled; NoAction; }
-        default_action = NoAction;
-    }
-
-    // Multicast NAT tables for untagged traffic.
-    table nat_v4_mcast_untagged {
-        key = {
-            hdr.ipv4.dst:   exact;
-        }
-        actions = { forward_to_sled; NoAction; }
-        default_action = NoAction;
-    }
-
-    table nat_v6_mcast_untagged {
         key = {
             hdr.ipv6.dst:   exact;
         }
@@ -356,11 +330,7 @@ control nat_ingress(
                 // High nibble 0xe (0b1110) is the 224.0.0.0/4 multicast
                 // range. Anything else is unicast and falls to nat_v4.
                 if (hdr.ipv4.dst[31:28] == 4w0xe) {
-                    if (hdr.vlan.isValid()) {
-                        nat_v4_mcast.apply();
-                    } else {
-                        nat_v4_mcast_untagged.apply();
-                    }
+                    nat_v4_mcast.apply();
                 } else {
                     nat_v4.apply();
                 }
@@ -369,11 +339,7 @@ control nat_ingress(
                 // High octet 0xff is the ff00::/8 multicast range.
                 // Anything else is unicast and falls to nat_v6.
                 if (hdr.ipv6.dst[127:120] == 8w0xff) {
-                    if (hdr.vlan.isValid()) {
-                        nat_v6_mcast.apply();
-                    } else {
-                        nat_v6_mcast_untagged.apply();
-                    }
+                    nat_v6_mcast.apply();
                 } else {
                     nat_v6.apply();
                 }
