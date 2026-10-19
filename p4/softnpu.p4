@@ -13,6 +13,7 @@ struct ingress_metadata_t {
     bool lldp;
     bool allow_source_mcast;
     bool mcast_decap;
+    bool nat_egress_hit;
 
     // Used as mutable scratchpad shared between parser states.
     bit<6> geneve_chunks;

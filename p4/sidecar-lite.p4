@@ -85,7 +85,10 @@ control ingress(
         if (local_dst) {
             // If this is boundary services packet, it should have a geneve
             // header. Decap and attempt to route.
-            if (hdr.geneve.isValid()) { decap_geneve(); }
+            if (hdr.geneve.isValid()) {
+                ingress.nat_egress_hit = true;
+                decap_geneve();
+            }
             // If there is no geneve header this is a packet from outside the
             // rack and should be sent to the scrimlet.
             else { fwd_to_scrimlet(); return; }
@@ -770,25 +773,39 @@ control router(
     apply {
         bit<16> outport = 0;
 
+        // nat_ingress and this router control drop a TTL/hop_limit of 0 on
+        // forwarding paths (RFC 1812 section 4.2.2.9 still has the switch
+        // receive it on the local path), although the boundary services
+        // (Geneve decap) path is exempt from this drop and is still routed
+        // for an inner TTL of 0, matching dendrite's Router4/Router6.
+        //
+        // Nonzero ports drop a TTL/hop_limit <= 1 after route lookup.
         if (hdr.ipv4.isValid()) {
-            if (hdr.ipv4.ttl == 8w0) { egress.drop = true; return; }
+            if (ingress.nat_egress_hit == false) {
+                if (hdr.ipv4.ttl == 8w0) { egress.drop = true; return; }
+            }
             v4_idx.apply(hdr.ipv4.dst, hdr.ipv4.src, ingress, egress);
             if (egress.drop == true) { return; }
             v4_route.apply(ingress, egress);
             if (egress.drop == true) { return; }
             if (egress.port != 16w0) {
-                if (hdr.ipv4.ttl == 8w1) { egress.drop = true; return; }
+                if (hdr.ipv4.ttl <= 8w1) { egress.drop = true; return; }
                 ttl_dec.apply(hdr.ipv4);
             }
         }
         if (hdr.ipv6.isValid()) {
-            if (hdr.ipv6.hop_limit == 8w0) { egress.drop = true; return; }
+            if (ingress.nat_egress_hit == false) {
+                if (hdr.ipv6.hop_limit == 8w0) {
+                    egress.drop = true;
+                    return;
+                }
+            }
             v6_idx.apply(hdr.ipv6.dst, hdr.ipv6.src, ingress, egress);
             if (egress.drop == true) { return; }
             v6_route.apply(ingress, egress);
             if (egress.drop == true) { return; }
             if (egress.port != 16w0) {
-                if (hdr.ipv6.hop_limit == 8w1) { egress.drop = true; return; }
+                if (hdr.ipv6.hop_limit <= 8w1) { egress.drop = true; return; }
                 hdr.ipv6.hop_limit = hdr.ipv6.hop_limit - 8w1;
             }
         }

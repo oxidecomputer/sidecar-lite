@@ -959,6 +959,100 @@ fn ipv6_ttl1_dropped() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+fn boundary_services_v6(inner_dst: &str, hop_limit: u8) -> Vec<u8> {
+    let inner_ip = v6_probe("fd00:2::1", inner_dst, hop_limit);
+    let mut eth_data = vec![0u8; 14 + inner_ip.len()];
+    let mut eth = MutableEthernetPacket::new(&mut eth_data).unwrap();
+    eth.set_destination(MacAddr::new(0x11, 0x11, 0x11, 0x22, 0x22, 0x22));
+    eth.set_source(MacAddr::new(0x33, 0x33, 0x33, 0x44, 0x44, 0x44));
+    eth.set_ethertype(EtherType(ETHERTYPE_IPV6));
+    eth.set_payload(&inner_ip);
+    wrap_geneve("fd00:1::1", "fd00:99::1", &eth_data, None)
+}
+
+#[test]
+fn boundary_services_hop_limit0_to_scrimlet() -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(2);
+    pipeline_init(&mut pipeline);
+
+    let mut npu = SoftNpu::new(2, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+
+    npu.run();
+
+    let ip_data = boundary_services_v6("fd00:1::5", 0);
+    phy1.send(&[TxFrame::new(
+        l2_dst(phy0.mac, ETHERTYPE_IPV6, &ip_data),
+        ETHERTYPE_IPV6,
+        &ip_data,
+    )])?;
+
+    wait_for(
+        || phy0.recv_buffer_len() > 0,
+        "decapped hop_limit=0 packet on port 0",
+    );
+    let fs = phy0.recv();
+    assert_eq!(fs.len(), 1);
+    assert_eq!(fs[0].ethertype, ETHERTYPE_IPV6, "packet should be decapped");
+    let ip = Ipv6Packet::new(&fs[0].payload).unwrap();
+    assert_eq!(
+        ip.get_destination(),
+        "fd00:1::5".parse::<Ipv6Addr>().unwrap()
+    );
+    assert_eq!(ip.get_hop_limit(), 0, "port 0 route skips the decrement");
+
+    Ok(())
+}
+
+#[test]
+fn boundary_services_hop_limit0_nonzero_port_dropped(
+) -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(2);
+    pipeline_init(&mut pipeline);
+
+    let (key_buf, param_buf) = router_idx_entry("fd00:3::", 64, 3, 1);
+    pipeline
+        .add_ingress_router_v6_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_forward_entry(3, "fe80::3", 1);
+    pipeline.add_ingress_router_v6_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
+    let (key_buf, param_buf) =
+        resolver6_entry("fe80::3", [30, 31, 32, 33, 34, 35]);
+    pipeline.add_ingress_resolver_resolver_v6_entry(
+        "rewrite_dst",
+        &key_buf,
+        &param_buf,
+        0,
+    );
+
+    let mut npu = SoftNpu::new(2, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+
+    npu.run();
+
+    let ip_data = boundary_services_v6("fd00:3::99", 0);
+    phy0.send(&[TxFrame::new(
+        l2_dst(phy1.mac, ETHERTYPE_IPV6, &ip_data),
+        ETHERTYPE_IPV6,
+        &ip_data,
+    )])?;
+    phy0.send(&[TxFrame::new(
+        phy1.mac,
+        ETHERTYPE_IPV6,
+        &sentinel_v6_to("fd00:3::1"),
+    )])?;
+    let leaked_pkts = recv_until_sentinel(&phy1, "sentinel");
+    assert!(
+        leaked_pkts.is_empty(),
+        "decapped hop_limit=0 packet should not wrap and forward"
+    );
+
+    Ok(())
+}
+
 #[test]
 fn ipv6_ttl2_forwarded() -> Result<(), anyhow::Error> {
     let mut pipeline = main_pipeline::new(2);
