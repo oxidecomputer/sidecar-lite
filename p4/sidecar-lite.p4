@@ -24,6 +24,7 @@ control ingress(
     mac_rewrite()   mac;
     proxy_arp()     pxarp;
     mcast_ingress() mcast;
+    ipv4_ttl_decrement() ttl_dec;
 
     apply {
         //
@@ -95,21 +96,17 @@ control ingress(
             // through fwd_from_scrimlet and must not be dropped.
             if (mcast_dst) {
                 if (hdr.ipv4.isValid()) {
-                    if (hdr.ipv4.ttl == 8w0) { egress.drop = true; return; }
-                    if (hdr.ipv4.ttl == 8w1) { egress.drop = true; return; }
+                    if (hdr.ipv4.ttl <= 8w1) { egress.drop = true; return; }
                 }
                 if (hdr.ipv6.isValid()) {
-                    if (hdr.ipv6.hop_limit == 8w0) {
-                        egress.drop = true;
-                        return;
-                    }
-                    if (hdr.ipv6.hop_limit == 8w1) {
+                    if (hdr.ipv6.hop_limit <= 8w1) {
                         egress.drop = true;
                         return;
                     }
                 }
+            } else {
+                attached.apply(ingress, hdr);
             }
-            if (mcast_dst == false) { attached.apply(ingress, hdr); }
             if (hdr.geneve.isValid() == false) {
                 nat.apply(hdr, ingress, egress); // check for ingress nat
             }
@@ -146,15 +143,25 @@ control ingress(
                 hdr.vlan.setInvalid();
             }
             mcast.apply(hdr, ingress, egress);
-            if (ingress.mcast_decap) { decap_mcast_external(); }
             // Packet copies that keep their encapsulation are forwarded on the
             // outer IPv6 header, losing a hop like dendrite's
             // MulticastRouter6 (RFC 8200 section 3). Decapsulated copies
-            // already had the inner header decremented earlier in the logic.
-            if (ingress.mcast_decap == false) {
+            // have the inner header decremented before decap_geneve executes.
+            if (ingress.mcast_decap) {
+                validate_mcast_external();
+                if (egress.drop == false) {
+                    if (hdr.inner_ipv4.isValid()) {
+                        ttl_dec.apply(hdr.inner_ipv4);
+                    }
+                    if (hdr.inner_ipv6.isValid()) {
+                        hdr.inner_ipv6.hop_limit =
+                            hdr.inner_ipv6.hop_limit - 8w1;
+                    }
+                    decap_geneve();
+                }
+            } else {
                 if (hdr.ipv6.isValid()) {
-                    if (hdr.ipv6.hop_limit == 8w0) { egress.drop = true; }
-                    if (hdr.ipv6.hop_limit == 8w1) { egress.drop = true; }
+                    if (hdr.ipv6.hop_limit <= 8w1) { egress.drop = true; }
                     if (egress.drop == false) {
                         hdr.ipv6.hop_limit = hdr.ipv6.hop_limit - 8w1;
                     }
@@ -222,7 +229,7 @@ control ingress(
         }
     }
 
-    action decap_mcast_external() {
+    action validate_mcast_external() {
         bool inner_mcast = false;
         if (hdr.inner_ipv4.isValid()) {
             if (hdr.inner_ipv4.dst[31:28] == 4w0xe) { inner_mcast = true; }
@@ -239,32 +246,12 @@ control ingress(
         if (inner_l4 == false) { egress.drop = true; }
 
         if (hdr.inner_ipv4.isValid()) {
-            if (hdr.inner_ipv4.ttl == 8w0) { egress.drop = true; }
-            if (hdr.inner_ipv4.ttl == 8w1) { egress.drop = true; }
-            if (egress.drop == false) {
-                hdr.inner_ipv4.ttl = hdr.inner_ipv4.ttl - 8w1;
-
-                bit<16> neg_csum = hdr.inner_ipv4.hdr_checksum ^ 16w0xffff;
-                bit<32> csum32 = neg_csum;
-                csum32 = csum32 + 32w0xfeff;
-                bit<16> lo = csum32[15:0];
-                bit<16> carry = csum32[31:16];
-                bit<16> folded = lo + carry;
-                hdr.inner_ipv4.hdr_checksum = folded ^ 16w0xffff;
-            }
+            if (hdr.inner_ipv4.ttl <= 8w1) { egress.drop = true; }
         }
 
         if (hdr.inner_ipv6.isValid()) {
-            if (hdr.inner_ipv6.hop_limit == 8w0) { egress.drop = true; }
-            if (hdr.inner_ipv6.hop_limit == 8w1) { egress.drop = true; }
-            if (egress.drop == false) {
-                hdr.inner_ipv6.hop_limit = hdr.inner_ipv6.hop_limit - 8w1;
-            }
+            if (hdr.inner_ipv6.hop_limit <= 8w1) { egress.drop = true; }
         }
-
-        if (egress.drop == true) { return; }
-
-        decap_geneve();
     }
 
     action fwd_to_scrimlet() {
@@ -390,6 +377,12 @@ control nat_ingress(
             }
         }
         if (ingress.forward_needed == true) {
+            if (hdr.ipv4.isValid()) {
+                if (hdr.ipv4.ttl == 8w0) { egress.drop = true; return; }
+            }
+            if (hdr.ipv6.isValid()) {
+                if (hdr.ipv6.hop_limit == 8w0) { egress.drop = true; return; }
+            }
             forward_packet();
         }
     }
@@ -456,7 +449,8 @@ control nat_ingress(
         hdr.ipv6.payload_len = 16w14 + orig_l3_len + 16w8 + 16w8 + 16w4;
         hdr.ipv6.next_hdr = 8w17;
         hdr.ipv6.hop_limit = 8w255;
-        hdr.ipv6.src = 128w0;
+        // XXX hardcoded boundary services addr
+        hdr.ipv6.src = 128w0xfd000099000000000000000000000001;
         hdr.ipv6.dst = ingress.forward_tgt;
         hdr.ipv6.setValid();
 
@@ -731,6 +725,37 @@ control router_v6_idx(
     }
 }
 
+// TODO: Use a top-level action once x4c supports top-level actions and
+// writes out/inout argument changes back to the caller.
+//
+// <https://github.com/oxidecomputer/p4/blob/c8b190f46901d4c1b8eef1ca35be243b18653471/p4/src/parser.rs#L676-L696>
+// <https://github.com/oxidecomputer/p4/blob/c8b190f46901d4c1b8eef1ca35be243b18653471/codegen/rust/src/statement.rs#L399-L407>
+control ipv4_ttl_decrement(
+    inout ipv4_h ip,
+) {
+    apply {
+        ip.ttl = ip.ttl - 8w1;
+
+        // Incremental IPv4 header checksum update, RFC 1624 eqn. 3:
+        // HC' = ~(~HC + ~m + m') (HC -> header checksum; m and m'
+        // are the old and new 16-bit words). TTL is the high byte of
+        // its 16-bit word, where decrementing makes ~m + m' equal to
+        // 0xfeff. Unlike HC + 0x0100 (RFC 1141), this yields 0x0000,
+        // not 0xffff at the zero boundary, matching a full recompute
+        // cycle.
+        //
+        // Note: x4c does not parse unary ~ yet; XOR with 0xffff
+        // stands in instead.
+        bit<16> neg_csum = ip.hdr_checksum ^ 16w0xffff;
+        bit<32> csum32 = neg_csum;
+        csum32 = csum32 + 32w0xfeff;
+        bit<16> lo = csum32[15:0];
+        bit<16> carry = csum32[31:16];
+        bit<16> folded = lo + carry;
+        ip.hdr_checksum = folded ^ 16w0xffff;
+    }
+}
+
 control router(
     inout headers_t hdr,
     inout ingress_metadata_t ingress,
@@ -740,36 +765,29 @@ control router(
     router_v4_route() v4_route;
     router_v6_idx() v6_idx;
     router_v6_route() v6_route;
+    ipv4_ttl_decrement() ttl_dec;
 
     apply {
         bit<16> outport = 0;
 
         if (hdr.ipv4.isValid()) {
+            if (hdr.ipv4.ttl == 8w0) { egress.drop = true; return; }
             v4_idx.apply(hdr.ipv4.dst, hdr.ipv4.src, ingress, egress);
             if (egress.drop == true) { return; }
             v4_route.apply(ingress, egress);
             if (egress.drop == true) { return; }
             if (egress.port != 16w0) {
-                if (hdr.ipv4.ttl == 8w0) { egress.drop = true; return; }
                 if (hdr.ipv4.ttl == 8w1) { egress.drop = true; return; }
-                hdr.ipv4.ttl = hdr.ipv4.ttl - 8w1;
-
-                bit<16> neg_csum = hdr.ipv4.hdr_checksum ^ 16w0xffff;
-                bit<32> csum32 = neg_csum;
-                csum32 = csum32 + 32w0xfeff;
-                bit<16> lo = csum32[15:0];
-                bit<16> carry = csum32[31:16];
-                bit<16> folded = lo + carry;
-                hdr.ipv4.hdr_checksum = folded ^ 16w0xffff;
+                ttl_dec.apply(hdr.ipv4);
             }
         }
         if (hdr.ipv6.isValid()) {
+            if (hdr.ipv6.hop_limit == 8w0) { egress.drop = true; return; }
             v6_idx.apply(hdr.ipv6.dst, hdr.ipv6.src, ingress, egress);
             if (egress.drop == true) { return; }
             v6_route.apply(ingress, egress);
             if (egress.drop == true) { return; }
             if (egress.port != 16w0) {
-                if (hdr.ipv6.hop_limit == 8w0) { egress.drop = true; return; }
                 if (hdr.ipv6.hop_limit == 8w1) { egress.drop = true; return; }
                 hdr.ipv6.hop_limit = hdr.ipv6.hop_limit - 8w1;
             }
@@ -908,8 +926,7 @@ control mcast_ingress(
             if (hdr.oxg_mcast.mcast_tag == 2w0) {
                 egress.underlay_bitmap = 128w0;
                 ingress.mcast_decap = true;
-            }
-            if (hdr.oxg_mcast.mcast_tag == 2w1) {
+            } else if (hdr.oxg_mcast.mcast_tag == 2w1) {
                 egress.external_bitmap = 128w0;
             }
         }
@@ -934,6 +951,8 @@ control egress(
     inout ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
+    ipv4_ttl_decrement() ttl_dec;
+
     // Decap port bitmap table keyed on RID (replication ID), which
     // set_port_bitmap inscribes per group, essentially replacing Tofino's
     // egress_rid.
@@ -950,17 +969,6 @@ control egress(
         default_action = NoAction;
     }
 
-    action set_decap_ports(bit<128> ports) {
-        egress.decap_bitmap = ports;
-        egress.decap_has_vlan = false;
-    }
-
-    action set_decap_ports_and_vlan(bit<128> ports, bit<12> vlan_id) {
-        egress.decap_bitmap = ports;
-        egress.decap_has_vlan = true;
-        egress.decap_vlan_id = vlan_id;
-    }
-
     // Source MAC rewrite per egress port.
     //
     // This runs on every replicated copy, meaning that both encapsulated
@@ -972,17 +980,10 @@ control egress(
         default_action = NoAction;
     }
 
-    action rewrite_src_mac(bit<48> mac) { hdr.ethernet.src = mac; }
-
     table asic_id_to_port {
         key = { egress.port: exact; }
         actions = { set_port_number; NoAction; }
         default_action = NoAction;
-    }
-
-    action set_port_number(bit<8> port_number) {
-        egress.port_number = port_number;
-        egress.port_number_valid = true;
     }
 
     apply {
@@ -1030,7 +1031,8 @@ control egress(
         //
         // TODO: Collapse these nested conditionals once x4c parses `&&` and
         // `||` (P4-16 section 8.5, Expressions on Booleans). The lexer
-        // tokenizes both, but `try_parse_binop` has no casing for either.
+        // tokenizes `&&` but treats `||` as two separate `|` tokens.
+        // `try_parse_binop` handles neither of these logical operators.
         //
         // <https://p4.org/wp-content/uploads/sites/53/2024/10/P4-16-spec-v1.2.5.html#sec-bool-exprs>
         // <https://github.com/oxidecomputer/p4/blob/4645231880ccae40efd2bc583b643944ab0f0a20/p4/src/parser.rs#L435-L457>
@@ -1047,10 +1049,20 @@ control egress(
                                 bit<128> hit = egress.decap_bitmap & port_mask;
 
                                 if (hit != 128w0) {
-                                    if (egress.decap_has_vlan) {
-                                        decap_vlan(egress.decap_vlan_id);
-                                    } else {
-                                        decap();
+                                    validate_decap();
+                                    if (egress.drop == false) {
+                                        if (hdr.inner_ipv4.isValid()) {
+                                            ttl_dec.apply(hdr.inner_ipv4);
+                                        }
+                                        if (hdr.inner_ipv6.isValid()) {
+                                            hdr.inner_ipv6.hop_limit =
+                                                hdr.inner_ipv6.hop_limit - 8w1;
+                                        }
+                                        if (egress.decap_has_vlan) {
+                                            decap_vlan(egress.decap_vlan_id);
+                                        } else {
+                                            decap();
+                                        }
                                     }
                                 }
                             }
@@ -1091,6 +1103,24 @@ control egress(
         mcast_src_mac.apply();
     }
 
+    action set_decap_ports(bit<128> ports) {
+        egress.decap_bitmap = ports;
+        egress.decap_has_vlan = false;
+    }
+
+    action set_decap_ports_and_vlan(bit<128> ports, bit<12> vlan_id) {
+        egress.decap_bitmap = ports;
+        egress.decap_has_vlan = true;
+        egress.decap_vlan_id = vlan_id;
+    }
+
+    action rewrite_src_mac(bit<48> mac) { hdr.ethernet.src = mac; }
+
+    action set_port_number(bit<8> port_number) {
+        egress.port_number = port_number;
+        egress.port_number_valid = true;
+    }
+
     action decap() {
         strip_decap();
         hdr.vlan.setInvalid();
@@ -1111,58 +1141,11 @@ control egress(
         hdr.ethernet.ether_type = 16w0x8100;
     }
 
-    // Shared decap -> validate and decrement inner TTL, restore inner
-    // ethernet header, and strip outer headers.
+    // Shared decap -> restore inner ethernet header and strip outer
+    // headers.
     //
-    // Sets egress.drop on expired TTL. Callers still run, but the
-    // packet is dropped before emission.
+    // Note: validate_decap and the inner TTL decrement run first.
     action strip_decap() {
-        bool inner_mcast = false;
-        if (hdr.inner_ipv4.isValid()) {
-            if (hdr.inner_ipv4.dst[31:28] == 4w0xe) { inner_mcast = true; }
-        }
-        if (hdr.inner_ipv6.isValid()) {
-            if (hdr.inner_ipv6.dst[127:120] == 8w0xff) { inner_mcast = true; }
-        }
-        if (inner_mcast == false) { egress.drop = true; return; }
-
-        // Drop expired inner packets instead of wrapping TTL/hop_limit.
-        if (hdr.inner_ipv4.isValid()) {
-            if (hdr.inner_ipv4.ttl == 8w0) { egress.drop = true; }
-            if (hdr.inner_ipv4.ttl == 8w1) { egress.drop = true; }
-            if (egress.drop == false) {
-                hdr.inner_ipv4.ttl = hdr.inner_ipv4.ttl - 8w1;
-
-                // Incremental IPv4 header checksum update, RFC 1624 eqn. 3:
-                // HC' = ~(~HC + ~m + m') (HC -> header checksum; m and m'
-                // are the old and new 16-bit words). TTL is the high byte of
-                // its 16-bit word, where decrementing makes ~m + m' equal to
-                // 0xfeff. Unlike HC + 0x0100 (RFC 1141), this yields 0x0000,
-                // not 0xffff at the zero boundary, matching a full recompute
-                // cycle.
-                //
-                // Note: x4c does not parse unary ~ yet; XOR with 0xffff
-                // stands in instead.
-                bit<16> neg_csum = hdr.inner_ipv4.hdr_checksum ^ 16w0xffff;
-                bit<32> csum32 = neg_csum;
-                csum32 = csum32 + 32w0xfeff;
-                bit<16> lo = csum32[15:0];
-                bit<16> carry = csum32[31:16];
-                bit<16> folded = lo + carry;
-                hdr.inner_ipv4.hdr_checksum = folded ^ 16w0xffff;
-            }
-        }
-
-        if (hdr.inner_ipv6.isValid()) {
-            if (hdr.inner_ipv6.hop_limit == 8w0) { egress.drop = true; }
-            if (hdr.inner_ipv6.hop_limit == 8w1) { egress.drop = true; }
-            if (egress.drop == false) {
-                hdr.inner_ipv6.hop_limit = hdr.inner_ipv6.hop_limit - 8w1;
-            }
-        }
-
-        if (egress.drop == true) { return; }
-
         // Restore inner ethernet header, then strip encapsulation.
         hdr.ethernet = hdr.inner_eth;
         hdr.inner_eth.setInvalid();
@@ -1186,5 +1169,25 @@ control egress(
         hdr.oxg_mcast.setInvalid();
         hdr.oxg_mss_tag.setInvalid();
         hdr.oxg_mss.setInvalid();
+    }
+
+    action validate_decap() {
+        bool inner_mcast = false;
+        if (hdr.inner_ipv4.isValid()) {
+            if (hdr.inner_ipv4.dst[31:28] == 4w0xe) { inner_mcast = true; }
+        }
+        if (hdr.inner_ipv6.isValid()) {
+            if (hdr.inner_ipv6.dst[127:120] == 8w0xff) { inner_mcast = true; }
+        }
+        if (inner_mcast == false) { egress.drop = true; return; }
+
+        // Drop expired inner packets instead of wrapping TTL/hop_limit.
+        if (hdr.inner_ipv4.isValid()) {
+            if (hdr.inner_ipv4.ttl <= 8w1) { egress.drop = true; }
+        }
+
+        if (hdr.inner_ipv6.isValid()) {
+            if (hdr.inner_ipv6.hop_limit <= 8w1) { egress.drop = true; }
+        }
     }
 }

@@ -54,13 +54,6 @@ parser parse(
         // Interface-local (ff01::/16) must not be forwarded.
         if (hdr.ipv6.dst[127:112] == 16w0xff01) { transition reject; }
 
-        // Link-local (ff02::/16) allows hop_limit == 1 but still rejects
-        // expired packets. Ingress sends it to the scrimlet.
-        if (hdr.ipv6.dst[127:112] == 16w0xff02) {
-            if (hdr.ipv6.hop_limit == 8w0) { transition reject; }
-            transition ipv6_proto;
-        }
-
         transition ipv6_proto;
     }
 

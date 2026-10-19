@@ -500,6 +500,7 @@ fn vlan_routing_ingress() -> Result<(), anyhow::Error> {
     ip.set_destination(dst);
     ip.set_next_level_protocol(IpNextHeaderProtocol::new(1));
     ip.set_total_length(send_ip_len);
+    ip.set_ttl(64);
     ip.set_payload(&icmp_data);
 
     // ---- CASE 1 ----
@@ -1013,6 +1014,95 @@ fn ipv6_ttl2_forwarded() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+#[test]
+fn ipv6_hop_limit0_routed_to_scrimlet_dropped() -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(2);
+    pipeline_init(&mut pipeline);
+
+    let mut npu = SoftNpu::new(2, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+
+    npu.run();
+
+    let payload = [0u8; 8];
+    let mut ip_data: Vec<u8> = vec![0; 40 + payload.len()];
+
+    let mut ip = MutableIpv6Packet::new(&mut ip_data).unwrap();
+    ip.set_version(6);
+    ip.set_source("fd00:2::1".parse().unwrap());
+    ip.set_destination("fd00:1::99".parse().unwrap());
+    ip.set_payload_length(payload.len() as u16);
+    ip.set_next_header(IpNextHeaderProtocol::new(17));
+    ip.set_hop_limit(0);
+    ip.set_payload(&payload);
+
+    phy1.send(&[TxFrame::new(
+        l2_dst(phy0.mac, ETHERTYPE_IPV6, &ip_data),
+        ETHERTYPE_IPV6,
+        &ip_data,
+    )])?;
+    phy1.send(&[TxFrame::new(phy0.mac, ETHERTYPE_IPV6, &sentinel_v6())])?;
+    let leaked_pkts = recv_until_sentinel(&phy0, "sentinel");
+    assert!(
+        leaked_pkts.is_empty(),
+        "hop_limit=0 packet routed to port 0 should be dropped"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn ipv6_hop_limit0_local_to_scrimlet() -> Result<(), anyhow::Error> {
+    let probe = v6_probe("fd00:2::1", "fd00:99::1", 0);
+    assert_v6_to_scrimlet(&probe, "local hop_limit=0 packet")
+}
+
+#[test]
+fn nat_v4_ttl0_dropped() -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(2);
+    pipeline_init(&mut pipeline);
+
+    let mut npu = SoftNpu::new(2, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+
+    npu.run();
+
+    let payload = [0u8; 8];
+    let mut udp_data: Vec<u8> = vec![0; 8 + payload.len()];
+    let mut udp = MutableUdpPacket::new(&mut udp_data).unwrap();
+    udp.set_source(100);
+    udp.set_destination(1500);
+    udp.set_length(8 + payload.len() as u16);
+    udp.set_payload(&payload);
+
+    let mut ip_data: Vec<u8> = vec![0; 20 + udp_data.len()];
+    let mut ip = MutableIpv4Packet::new(&mut ip_data).unwrap();
+    ip.set_version(4);
+    ip.set_header_length(5);
+    ip.set_source("8.8.8.8".parse().unwrap());
+    ip.set_destination("1.2.3.4".parse().unwrap());
+    ip.set_total_length(20 + udp_data.len() as u16);
+    ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
+    ip.set_ttl(0);
+    ip.set_payload(&udp_data);
+
+    phy1.send(&[TxFrame::new(
+        l2_dst(phy0.mac, ETHERTYPE_IPV4, &ip_data),
+        ETHERTYPE_IPV4,
+        &ip_data,
+    )])?;
+    phy1.send(&[TxFrame::new(phy0.mac, ETHERTYPE_IPV6, &sentinel_v6())])?;
+    let leaked_pkts = recv_until_sentinel(&phy0, "sentinel");
+    assert!(
+        leaked_pkts.is_empty(),
+        "TTL=0 packet should not be NAT-encapsulated toward the sled"
+    );
+
+    Ok(())
+}
+
 fn mcast_ttl_pipeline() -> main_pipeline {
     let mut pipeline = main_pipeline::new(2);
     pipeline_init(&mut pipeline);
@@ -1083,11 +1173,15 @@ fn mcast_v4_probe(dst: &str, ttl: u8) -> Vec<u8> {
 }
 
 fn mcast_v6_probe(dst: &str, hop_limit: u8) -> Vec<u8> {
+    v6_probe("fd00:1::1", dst, hop_limit)
+}
+
+fn v6_probe(src: &str, dst: &str, hop_limit: u8) -> Vec<u8> {
     let payload = [0u8; 8];
     let mut ip_data: Vec<u8> = vec![0; 40 + payload.len()];
     let mut ip = MutableIpv6Packet::new(&mut ip_data).unwrap();
     ip.set_version(6);
-    ip.set_source("fd00:1::1".parse().unwrap());
+    ip.set_source(src.parse().unwrap());
     ip.set_destination(dst.parse().unwrap());
     ip.set_payload_length(payload.len() as u16);
     ip.set_next_header(IpNextHeaderProtocol::new(17));
@@ -1184,6 +1278,21 @@ fn ipv6_mcast_ff01_rejected() -> Result<(), anyhow::Error> {
 // wrapped in the sidecar header (ethertype 0x0901).
 #[test]
 fn ipv6_mcast_ff02_to_scrimlet() -> Result<(), anyhow::Error> {
+    // A link-local destination permits hop_limit=1.
+    let probe = mcast_v6_probe("ff02::1", 1);
+    assert_v6_to_scrimlet(&probe, "ff02:: packet")
+}
+
+#[test]
+fn ipv6_mcast_ff02_hop_limit_zero_to_scrimlet() -> Result<(), anyhow::Error> {
+    let probe = mcast_v6_probe("ff02::1", 0);
+    assert_v6_to_scrimlet(&probe, "ff02:: packet with hop_limit=0")
+}
+
+fn assert_v6_to_scrimlet(
+    probe: &[u8],
+    what: &str,
+) -> Result<(), anyhow::Error> {
     let mut pipeline = main_pipeline::new(2);
     pipeline_init(&mut pipeline);
 
@@ -1193,36 +1302,23 @@ fn ipv6_mcast_ff02_to_scrimlet() -> Result<(), anyhow::Error> {
 
     npu.run();
 
-    // A link-local destination permits hop_limit=1.
-    let payload = [0u8; 8];
-    let mut ip_data: Vec<u8> = vec![0; 40 + payload.len()];
-    let mut ip = MutableIpv6Packet::new(&mut ip_data).unwrap();
-    ip.set_version(6);
-    ip.set_source("fd00:1::1".parse().unwrap());
-    ip.set_destination("ff02::1".parse().unwrap());
-    ip.set_payload_length(payload.len() as u16);
-    ip.set_next_header(IpNextHeaderProtocol::new(17));
-    ip.set_hop_limit(1);
-    ip.set_payload(&payload);
-
     // Send from port 1 so scrimlet (port 0) can receive it.
     phy1.send(&[TxFrame::new(
-        l2_dst(phy0.mac, ETHERTYPE_IPV6, &ip_data),
+        l2_dst(phy0.mac, ETHERTYPE_IPV6, probe),
         ETHERTYPE_IPV6,
-        &ip_data,
+        probe,
     )])?;
 
     wait_for(
         || phy0.recv_buffer_len() > 0,
-        "scrimlet should receive ff02:: packet",
+        &format!("scrimlet should receive {what}"),
     );
     let fs = phy0.recv();
-    let f = &fs[0];
 
     // fwd_to_scrimlet sets ethernet.ether_type = 0x0901 (sidecar header).
     assert_eq!(
-        f.ethertype, ETHERTYPE_SIDECAR,
-        "ff02:: packet should arrive with sidecar header ethertype"
+        fs[0].ethertype, ETHERTYPE_SIDECAR,
+        "{what} should arrive with sidecar header ethertype"
     );
 
     Ok(())
@@ -1358,8 +1454,8 @@ fn assert_nat_encap(payload: &[u8], target: &str, vni: u32) {
 
     assert_eq!(
         ip.get_source(),
-        Ipv6Addr::UNSPECIFIED,
-        "outer IPv6 source is unspecified"
+        "fd00:99::1".parse::<Ipv6Addr>().unwrap(),
+        "outer IPv6 source is the boundary services address"
     );
     assert_eq!(ip.get_traffic_class(), 0, "outer traffic class zeroed");
     assert_eq!(ip.get_flow_label(), 0, "outer flow label zeroed");
