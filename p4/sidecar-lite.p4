@@ -146,7 +146,7 @@ control nat_ingress(
             hdr.ipv4.dst:   exact;
             ingress.nat_id: range;
         }
-        actions = { forward_to_sled; }
+        actions = { forward_to_sled; NoAction; }
         default_action = NoAction;
     }
 
@@ -155,7 +155,7 @@ control nat_ingress(
             hdr.ipv6.dst:   exact;
             ingress.nat_id: range;
         }
-        actions = { forward_to_sled; }
+        actions = { forward_to_sled; NoAction; }
         default_action = NoAction;
     }
 
@@ -319,7 +319,7 @@ control attached(
         key = {
             hdr.ipv4.dst:   lpm;
         }
-        actions = { forward_to_sled; }
+        actions = { forward_to_sled; NoAction; }
         default_action = NoAction;
     }
 
@@ -327,7 +327,7 @@ control attached(
         key = {
             hdr.ipv6.dst:   lpm;
         }
-        actions = { forward_to_sled; }
+        actions = { forward_to_sled; NoAction; }
         default_action = NoAction;
     }
 
@@ -378,7 +378,7 @@ control router_v4_route(
 ) {
     table rtr {
         key = { ingress.path_idx: exact; }
-        actions = { forward; forward_v6; forward_vlan; forward_vlan_v6; }
+        actions = { forward; forward_v6; forward_vlan; forward_vlan_v6; drop; }
         // should never happen, but the compiler requires a default
         default_action = drop;
     }
@@ -452,7 +452,7 @@ control router_v6_route(
 ) {
     table rtr {
         key = { ingress.path_idx: exact; }
-        actions = { forward; forward_vlan; }
+        actions = { forward; forward_vlan; drop; }
         // should never happen, but the compiler requires a default
         default_action = drop;
     }
@@ -545,7 +545,7 @@ control mac_rewrite(
 ) {
     table mac_rewrite {
         key = { egress.port: exact; }
-        actions = { rewrite; }
+        actions = { rewrite; NoAction; }
         default_action = NoAction;
     }
 
@@ -562,7 +562,7 @@ control proxy_arp(
 ) {
     table proxy_arp {
         key = { hdr.arp.target_ip: range; }
-        actions = { proxy_arp_reply; }
+        actions = { proxy_arp_reply; NoAction; }
         default_action = NoAction;
     }
 
