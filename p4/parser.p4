@@ -1,4 +1,4 @@
-// Copyright 2024 Oxide Computer Company
+// Copyright 2026 Oxide Computer Company
 
 parser parse(
     packet_in pkt,
@@ -46,6 +46,18 @@ parser parse(
 
     state ipv6 {
         pkt.extract(hdr.ipv6);
+        if (hdr.ipv6.dst[127:120] == 8w0xff) { transition ipv6_mcast; }
+        transition ipv6_proto;
+    }
+
+    state ipv6_mcast {
+        // Interface-local (ff01::/16) must not be forwarded.
+        if (hdr.ipv6.dst[127:112] == 16w0xff01) { transition reject; }
+
+        transition ipv6_proto;
+    }
+
+    state ipv6_proto {
         if (hdr.ipv6.next_hdr == 8w0xdd) { transition ddm; }
         if (hdr.ipv6.next_hdr == 8w58)   { transition icmp; }
         if (hdr.ipv6.next_hdr == 8w17)   { transition udp; }
