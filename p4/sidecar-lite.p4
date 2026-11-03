@@ -498,7 +498,10 @@ control local(
     }
 
     action nonlocal() { is_local = false; }
-    action local()    { is_local = true; }
+    action local(bit<8> rid) {
+        is_local = true;
+        ingress.router_id = rid;
+    }
 }
 
 control attached(
@@ -619,7 +622,10 @@ control router_v4_idx(
     Checksum() csum;
 
     table rtr {
-        key = { dst_addr: lpm; }
+        key = {
+            ingress.router_id: exact;
+            dst_addr: lpm;
+        }
         actions = { drop; index; }
         default_action = drop;
     }
@@ -677,7 +683,10 @@ control router_v6_idx(
     Checksum() csum;
 
     table rtr {
-        key = { dst_addr: lpm; }
+        key = {
+            ingress.router_id: exact;
+            dst_addr: lpm;
+        }
         actions = { drop; index; }
         default_action = drop;
     }
