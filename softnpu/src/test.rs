@@ -959,7 +959,7 @@ fn ipv6_ttl1_dropped() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn boundary_services_v6(inner_dst: &str, hop_limit: u8) -> Vec<u8> {
+fn boundary_services_v6(tep: &str, inner_dst: &str, hop_limit: u8) -> Vec<u8> {
     let inner_ip = v6_probe("fd00:2::1", inner_dst, hop_limit);
     let mut eth_data = vec![0u8; 14 + inner_ip.len()];
     let mut eth = MutableEthernetPacket::new(&mut eth_data).unwrap();
@@ -967,7 +967,7 @@ fn boundary_services_v6(inner_dst: &str, hop_limit: u8) -> Vec<u8> {
     eth.set_source(MacAddr::new(0x33, 0x33, 0x33, 0x44, 0x44, 0x44));
     eth.set_ethertype(EtherType(ETHERTYPE_IPV6));
     eth.set_payload(&inner_ip);
-    wrap_geneve("fd00:1::1", "fd00:99::1", &eth_data, None)
+    wrap_geneve("fd00:1::1", tep, &eth_data, None)
 }
 
 #[test]
@@ -981,7 +981,7 @@ fn boundary_services_hop_limit0_to_scrimlet() -> Result<(), anyhow::Error> {
 
     npu.run();
 
-    let ip_data = boundary_services_v6("fd00:1::5", 0);
+    let ip_data = boundary_services_v6("fd00:99::1", "fd00:1::5", 0);
     phy1.send(&[TxFrame::new(
         l2_dst(phy0.mac, ETHERTYPE_IPV6, &ip_data),
         ETHERTYPE_IPV6,
@@ -1033,7 +1033,7 @@ fn boundary_services_hop_limit0_nonzero_port_dropped(
 
     npu.run();
 
-    let ip_data = boundary_services_v6("fd00:3::99", 0);
+    let ip_data = boundary_services_v6("fd00:99::1", "fd00:3::99", 0);
     phy0.send(&[TxFrame::new(
         l2_dst(phy1.mac, ETHERTYPE_IPV6, &ip_data),
         ETHERTYPE_IPV6,
@@ -3940,101 +3940,82 @@ fn geneve_mcast_v6_inner_pkt(
 
 // Build a geneve-encapped ipv4 packet destined to the given TEP address,
 // returning the outer ipv6 packet bytes.
-fn geneve_encapped_v4(tep: &str, inner_dst_addr: &str) -> Vec<u8> {
-    let mut n = 8;
-    let mut icmp_data: Vec<u8> = vec![0; n];
-    let mut icmp = MutableIcmpPacket::new(&mut icmp_data).unwrap();
-    icmp.set_payload([0x04, 0x17, 0x00, 0x00].as_slice());
+fn geneve_encapped_v4(tep: &str, inner_dst: &str) -> Vec<u8> {
+    let mut ip_data = vec![0u8; 28];
+    let mut ip = MutableIpv4Packet::new(&mut ip_data).unwrap();
+    ip.set_version(4);
+    ip.set_header_length(5);
+    ip.set_total_length(28);
+    ip.set_source("1.2.3.4".parse().unwrap());
+    ip.set_destination(inner_dst.parse().unwrap());
+    ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
+    ip.set_ttl(64);
 
-    n += 20;
-    let mut inner_ip_data: Vec<u8> = vec![0; n];
-    let inner_src: Ipv4Addr = "1.2.3.4".parse().unwrap();
-    let inner_dst: Ipv4Addr = inner_dst_addr.parse().unwrap();
-    let mut inner_ip = MutableIpv4Packet::new(&mut inner_ip_data).unwrap();
-    inner_ip.set_version(4);
-    inner_ip.set_source(inner_src);
-    inner_ip.set_header_length(5);
-    inner_ip.set_destination(inner_dst);
-    inner_ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
-    inner_ip.set_total_length(20 + icmp_data.len() as u16);
-    inner_ip.set_ttl(64);
-    inner_ip.set_payload(&icmp_data);
-
-    n += 14;
-    let mut eth_data: Vec<u8> = vec![0; n];
+    let mut eth_data = vec![0u8; 14 + ip_data.len()];
     let mut eth = MutableEthernetPacket::new(&mut eth_data).unwrap();
     eth.set_destination(MacAddr::new(0x11, 0x11, 0x11, 0x22, 0x22, 0x22));
     eth.set_source(MacAddr::new(0x33, 0x33, 0x33, 0x44, 0x44, 0x44));
-    eth.set_ethertype(EtherType(0x0800));
-    eth.set_payload(&inner_ip_data);
-
-    n += 8;
-    let mut geneve_data: Vec<u8> =
-        vec![0x00, 0x00, 0x65, 0x58, 0x11, 0x11, 0x11, 0x00];
-    geneve_data.extend_from_slice(&eth_data);
-
-    n += 8;
-    let mut udp_data: Vec<u8> = vec![0; n];
-    let mut udp = MutableUdpPacket::new(&mut udp_data).unwrap();
-    udp.set_source(100);
-    udp.set_destination(6081);
-    udp.set_checksum(0x1701);
-    udp.set_payload(&geneve_data);
-
-    n += 40;
-    let mut ip_data: Vec<u8> = vec![0; n];
-    let mut ip = MutableIpv6Packet::new(&mut ip_data).unwrap();
-    ip.set_version(6);
-    ip.set_source("fd00:1::1".parse::<Ipv6Addr>().unwrap());
-    ip.set_destination(tep.parse::<Ipv6Addr>().unwrap());
-    ip.set_payload_length(udp_data.len() as u16);
-    ip.set_payload(&udp_data);
-    ip.set_next_header(IpNextHeaderProtocol::new(17));
-    ip.set_hop_limit(64);
-
-    ip_data
+    eth.set_ethertype(EtherType(ETHERTYPE_IPV4));
+    eth.set_payload(&ip_data);
+    wrap_geneve("fd00:1::1", tep, &eth_data, None)
 }
 
 #[test]
-fn router_id_selects_route_table() -> Result<(), anyhow::Error> {
+fn endpoint_selects_route_table() -> Result<(), anyhow::Error> {
     let mut pipeline = main_pipeline::new(3);
-    pipeline_init(&mut pipeline);
 
-    // router 0: a more specific path for 8.8.8.0/24, reusing the slot 2
-    // forwarding entry (gw=1.2.3.1, port=1)
-    let (key_buf, param_buf) = router_idx_entry("8.8.8.0", 24, 2, 1);
-    pipeline
-        .add_ingress_router_v4_idx_rtr_entry("index", &key_buf, &param_buf, 0);
-
-    // router 2: tunnel endpoint fd00:99::2
-    let (key_buf, param_buf) = local6_entry(2, "fd00:99::2");
+    // router 1: endpoint fd00:99::2, 8.8.8.0/24 and 2001:db8::/64 out port 1
+    let (key_buf, param_buf) = local6_entry(1, "fd00:99::2");
     pipeline.add_ingress_local_local_v6_entry("local", &key_buf, &param_buf, 0);
-
-    // router 2: a single path for 0.0.0.0/0 pointing at data in slot 4
-    let (key_buf, param_buf) = router_idx_entry_rid(2, "0.0.0.0", 0, 4, 1);
+    let (key_buf, param_buf) = router_idx_entry_rid(1, "8.8.8.0", 24, 4, 1);
     pipeline
         .add_ingress_router_v4_idx_rtr_entry("index", &key_buf, &param_buf, 0);
-
-    // At slot 4, add a forwarding entry gw=1.2.3.9, port=2
-    let (key_buf, param_buf) = router_forward_entry(4, "1.2.3.9", 2);
+    let (key_buf, param_buf) = router_forward_entry(4, "1.2.3.1", 1);
     pipeline.add_ingress_router_v4_route_rtr_entry(
         "forward", &key_buf, &param_buf, 0,
     );
+    let (key_buf, param_buf) = router_idx_entry_rid(1, "2001:db8::", 64, 4, 1);
+    pipeline
+        .add_ingress_router_v6_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_forward_entry(4, "fe80::1", 1);
+    pipeline.add_ingress_router_v6_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
 
-    // resolver entry for router 2's gateway
+    // router 2: endpoint fd00:99::3, 0.0.0.0/0 and ::/0 out port 2
+    let (key_buf, param_buf) = local6_entry(2, "fd00:99::3");
+    pipeline.add_ingress_local_local_v6_entry("local", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_idx_entry_rid(2, "0.0.0.0", 0, 5, 1);
+    pipeline
+        .add_ingress_router_v4_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_forward_entry(5, "1.2.3.1", 2);
+    pipeline.add_ingress_router_v4_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
+    let (key_buf, param_buf) = router_idx_entry_rid(2, "::", 0, 5, 1);
+    pipeline
+        .add_ingress_router_v6_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_forward_entry(5, "fe80::1", 2);
+    pipeline.add_ingress_router_v6_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
+
     let (key_buf, param_buf) =
-        resolver4_entry("1.2.3.9", [8, 9, 10, 11, 12, 14]);
+        resolver4_entry("1.2.3.1", [8, 9, 10, 11, 12, 13]);
     pipeline.add_ingress_resolver_resolver_v4_entry(
         "rewrite_dst",
         &key_buf,
         &param_buf,
         0,
     );
-
-    // mac rewrite table
-    let (key_buf, param_buf) = mac_rewrite_entry(2, [1, 2, 3, 4, 5, 7]);
-    pipeline
-        .add_ingress_mac_mac_rewrite_entry("rewrite", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) =
+        resolver6_entry("fe80::1", [20, 21, 22, 23, 24, 25]);
+    pipeline.add_ingress_resolver_resolver_v6_entry(
+        "rewrite_dst",
+        &key_buf,
+        &param_buf,
+        0,
+    );
 
     let mut npu = SoftNpu::new(3, pipeline, false);
     let phy0 = npu.phy(0);
@@ -4043,15 +4024,31 @@ fn router_id_selects_route_table() -> Result<(), anyhow::Error> {
 
     npu.run();
 
-    // The same inner destination to each tunnel endpoint. Router 0's /24
-    // would win on prefix length if the lookup ignored the router id.
-    let pkt = geneve_encapped_v4("fd00:99::1", "8.8.8.8");
-    phy0.send(&[TxFrame::new(phy1.mac, 0x86dd, &pkt)])?;
+    // 8.8.8.8 through router 1 should come out phy1
+    let pkt = geneve_encapped_v4("fd00:99::2", "8.8.8.8");
+    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV6, &pkt)])?;
+    wait_for(|| phy1.recv_buffer_len() > 0, "router 1 frame on port 1");
     let fs = phy1.recv();
     assert_eq!(fs.len(), 1);
 
-    let pkt = geneve_encapped_v4("fd00:99::2", "8.8.8.8");
-    phy0.send(&[TxFrame::new(phy2.mac, 0x86dd, &pkt)])?;
+    // 8.8.8.8 through router 2 should come out phy2
+    let pkt = geneve_encapped_v4("fd00:99::3", "8.8.8.8");
+    phy0.send(&[TxFrame::new(phy2.mac, ETHERTYPE_IPV6, &pkt)])?;
+    wait_for(|| phy2.recv_buffer_len() > 0, "router 2 frame on port 2");
+    let fs = phy2.recv();
+    assert_eq!(fs.len(), 1);
+
+    // 2001:db8::1 through router 1 should come out phy1
+    let pkt = boundary_services_v6("fd00:99::2", "2001:db8::1", 64);
+    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV6, &pkt)])?;
+    wait_for(|| phy1.recv_buffer_len() > 0, "router 1 v6 frame on port 1");
+    let fs = phy1.recv();
+    assert_eq!(fs.len(), 1);
+
+    // 2001:db8::1 through router 2 should come out phy2
+    let pkt = boundary_services_v6("fd00:99::3", "2001:db8::1", 64);
+    phy0.send(&[TxFrame::new(phy2.mac, ETHERTYPE_IPV6, &pkt)])?;
+    wait_for(|| phy2.recv_buffer_len() > 0, "router 2 v6 frame on port 2");
     let fs = phy2.recv();
     assert_eq!(fs.len(), 1);
 

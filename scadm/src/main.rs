@@ -52,7 +52,7 @@ enum Commands {
         /// Next Hop
         nexthop: Ipv4Addr,
 
-        /// Router id performing the lookup.
+        /// Router id to which it belongs.
         #[clap(long, default_value_t = 0)]
         rid: u8,
     },
@@ -65,7 +65,7 @@ enum Commands {
         /// Subnet mask for the destination.
         mask: u8,
 
-        /// Router id performing the lookup.
+        /// Router id to which it belongs.
         #[clap(long, default_value_t = 0)]
         rid: u8,
     },
@@ -84,7 +84,7 @@ enum Commands {
         /// Next Hop
         nexthop: Ipv6Addr,
 
-        /// Router id performing the lookup.
+        /// Router id to which it belongs.
         #[clap(long, default_value_t = 0)]
         rid: u8,
     },
@@ -97,7 +97,7 @@ enum Commands {
         /// Subnet mask for the destination.
         mask: u8,
 
-        /// Router id performing the lookup.
+        /// Router id to which it belongs.
         #[clap(long, default_value_t = 0)]
         rid: u8,
     },
@@ -769,6 +769,8 @@ async fn main() {
                     table: LOCAL_V4.into(),
                     action: "local".into(),
                     keyset_data,
+                    // IPv4 addresses are never tunnel endpoints, so they
+                    // always use the default router 0.
                     parameter_data: vec![0],
                 }),
                 &cli,
