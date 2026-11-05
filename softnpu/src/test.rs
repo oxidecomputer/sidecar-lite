@@ -1526,9 +1526,11 @@ fn scrimlet_mcast_copies(
     npu.run();
 
     let frame = sidecar_wrap(1, ethertype, probe);
-    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &frame)])?;
     let sentinel = sidecar_wrap(1, ETHERTYPE_IPV4, &sentinel_v4());
-    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &sentinel)])?;
+    phy0.send(&[
+        TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &frame),
+        TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &sentinel),
+    ])?;
 
     let frames = recv_until_sentinel(&phy1, "scrimlet sentinel on port 1");
     for f in &frames {
