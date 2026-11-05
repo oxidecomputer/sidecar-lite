@@ -31,7 +31,26 @@ control ingress(
         // Check if this is a packet coming from the scrimlet. If so just
         // forward it out the source port indicated by the sidecar header.
         //
-        if (hdr.sidecar.isValid()) { fwd_from_scrimlet(); return; }
+        if (hdr.sidecar.isValid()) {
+            fwd_from_scrimlet();
+            // TODO: Combine these checks when x4c supports && and ||.
+            if (hdr.ipv4.isValid()) {
+                if (hdr.ipv4.dst[31:28] == 4w0xe) {
+                    egress.drop = true;
+                    return;
+                }
+            }
+            if (hdr.ipv6.isValid()) {
+                // Link-local multicast retains the userspace MACs.
+                if (hdr.ipv6.dst[127:112] == 16w0xff02) { return; }
+                if (hdr.ipv6.dst[127:120] == 8w0xff) {
+                    egress.drop = true;
+                    return;
+                }
+            }
+            mac.apply(hdr, egress);
+            return;
+        }
 
         ///
         /// Check if we need to proxy arp this packet.
@@ -95,8 +114,8 @@ control ingress(
         } else {
             // Multicast with TTL/hop_limit <= 1 must not be forwarded
             // (RFC 1112, RFC 8200 section 3). The check lives here, not in
-            // the parser, because scrimlet transmissions return earlier
-            // through fwd_from_scrimlet and must not be dropped.
+            // the parser, because link-local scrimlet transmissions return
+            // earlier through fwd_from_scrimlet and must not be dropped.
             if (mcast_dst) {
                 if (hdr.ipv4.isValid()) {
                     if (hdr.ipv4.ttl <= 8w1) { egress.drop = true; return; }
@@ -182,13 +201,17 @@ control ingress(
             }
         } else {
             router.apply(hdr, ingress, egress);
-            resolver.apply(hdr, egress);
-            mac.apply(hdr, egress);
-
             // Prevent reflection. Multicast ingress-port suppression is
             // handled in the replication bitmap, so this applies to
             // unicast only.
-            if (ingress.port == egress.port) { egress.drop = true; }
+            if (ingress.port == egress.port) { egress.drop = true; } else {
+                resolver.apply(hdr, ingress, egress);
+                // Packets sent to scrimlet don't need their SMAC rewritten.
+                // If a resolver miss punts the packet and it gets retransmitted
+                // by tfportd (upon successful ARP/ND resolution), the SMAC is
+                // rewritten after fwd_from_scrimlet().
+                if (egress.port != 16w0) { mac.apply(hdr, egress); }
+            }
         }
     }
 
@@ -539,18 +562,19 @@ control attached(
 
 control resolver(
     inout headers_t hdr,
+    in ingress_metadata_t ingress,
     inout egress_metadata_t egress,
 ) {
     table resolver_v4 {
         key = { egress.nexthop_v4: exact; }
-        actions = { rewrite_dst; drop; }
-        default_action = drop;
+        actions = { request_arp; rewrite_dst; drop; }
+        default_action = request_arp;
     }
 
     table resolver_v6 {
         key = { egress.nexthop_v6: exact; }
-        actions = { rewrite_dst; drop; }
-        default_action = drop;
+        actions = { request_ndp; rewrite_dst; drop; }
+        default_action = request_ndp;
     }
 
     apply {
@@ -558,7 +582,31 @@ control resolver(
         if (egress.nexthop_v6 != 128w0) { resolver_v6.apply(); }
     }
 
+    action request_arp() {
+        hdr.sidecar.setValid();
+        hdr.sidecar.sc_ether_type = hdr.ethernet.ether_type;
+        hdr.ethernet.ether_type = 16w0x0901; // ETHERTYPE_SIDECAR
+        hdr.sidecar.sc_code = 8w0x03;        // SC_ARP_NEEDED
+        hdr.sidecar.sc_ingress = ingress.port;
+        hdr.sidecar.sc_egress = egress.port;
+        hdr.sidecar.sc_payload = 128w0;
+        hdr.sidecar.sc_payload[31:0] = egress.nexthop_v4;
+        egress.port = 16w0;                  // USER_SPACE_SERVICE_PORT
+    }
+
+    action request_ndp() {
+        hdr.sidecar.setValid();
+        hdr.sidecar.sc_ether_type = hdr.ethernet.ether_type;
+        hdr.ethernet.ether_type = 16w0x0901; // ETHERTYPE_SIDECAR
+        hdr.sidecar.sc_code = 8w0x04;        // SC_NEIGHBOR_NEEDED
+        hdr.sidecar.sc_ingress = ingress.port;
+        hdr.sidecar.sc_egress = egress.port;
+        hdr.sidecar.sc_payload = egress.nexthop_v6;
+        egress.port = 16w0;                  // USER_SPACE_SERVICE_PORT
+    }
+
     action rewrite_dst(bit<48> dst) { hdr.ethernet.dst = dst; }
+
     action drop()                   { egress.drop = true; }
 }
 

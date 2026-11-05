@@ -27,6 +27,11 @@ const ETHERTYPE_SIDECAR: u16 = 0x0901;
 const GENEVE_UDP_PORT: u16 = 6081;
 const GENEVE_PROTO_ETH: u16 = 0x6558;
 const OXG_OPTION_CLASS: u16 = 0x0129;
+const SC_FWD_FROM_USERSPACE: u8 = 0x00;
+const SC_ARP_NEEDED: u8 = 0x0003;
+const SC_NEIGHBOR_NEEDED: u8 = 0x0004;
+// this is defined as bit<9> in sidecar.p4, so round up to u16
+const USER_SPACE_SERVICE_PORT: u16 = 0x0000;
 
 // Multicast tag values matching Dendrite's MULTICAST_TAG_* constants.
 const MCAST_TAG_EXTERNAL: u8 = 0;
@@ -236,30 +241,55 @@ pub struct OxgMcastOpt {
     payload: Vec<u8>,
 }
 
-fn pipeline_init(pipeline: &mut main_pipeline) {
+// Sidecar frame format (following headers.p4)
+#[allow(dead_code)]
+#[derive(PktDerive)]
+pub struct Sidecar {
+    sc_code: u8,
+    sc_pad: u8,
+    sc_ingress: u16be,
+    sc_egress: u16be,
+    sc_ether_type: u16be,
+    #[length = "16"]
+    sc_payload: Vec<u8>,
+    #[payload]
+    payload: Vec<u8>, // the packet inside the sidecar header
+}
+
+fn router_pipeline_init(
+    pipeline: &mut main_pipeline,
+    v4_nh: &str,
+    v4_nh_port: u16,
+    v6_nh: &str,
+    v6_nh_port: u16,
+) {
     // router entry upstream
     // Add a single path for 0.0.0.0/0 pointing at data in slot 2.
     let (key_buf, param_buf) = router_idx_entry("0.0.0.0", 0, 2, 1);
     pipeline
         .add_ingress_router_v4_idx_rtr_entry("index", &key_buf, &param_buf, 0);
 
-    // At slot 2, add a forwarding entry gw=1.2.3.1, port=1
-    let (key_buf, param_buf) = router_forward_entry(2, "1.2.3.1", 1);
+    // At slot 2, add a forwarding entry (gw=v4_nh, port=v4_nh_port)
+    let (key_buf, param_buf) = router_forward_entry(2, v4_nh, v4_nh_port);
     pipeline.add_ingress_router_v4_route_rtr_entry(
         "forward", &key_buf, &param_buf, 0,
     );
 
     // router entry downstream
-    // Add a single path for fd00::1 pointing at data in slot 2.
+    // Add a single path for fd00::1/64 pointing at data in slot 2.
     let (key_buf, param_buf) = router_idx_entry("fd00:1::", 64, 2, 1);
     pipeline
         .add_ingress_router_v6_idx_rtr_entry("index", &key_buf, &param_buf, 0);
 
-    // At slot 2, add a forwarding entry gw=fe80::1 port=0
-    let (key_buf, param_buf) = router_forward_entry(2, "fe80::1", 0);
+    // At slot 2, add a forwarding entry (gw=v6_nh port=v6_nh_port)
+    let (key_buf, param_buf) = router_forward_entry(2, v6_nh, v6_nh_port);
     pipeline.add_ingress_router_v6_route_rtr_entry(
         "forward", &key_buf, &param_buf, 0,
     );
+}
+
+fn pipeline_init(pipeline: &mut main_pipeline) {
+    router_pipeline_init(pipeline, "1.2.3.1", 1, "fe80::1", 0);
 
     // nat entry
     let (key_buf, param_buf) = nat4_entry(
@@ -1252,12 +1282,16 @@ fn mcast_ttl_pipeline() -> main_pipeline {
 }
 
 fn mcast_v4_probe(dst: &str, ttl: u8) -> Vec<u8> {
+    v4_probe("10.0.0.1", dst, ttl)
+}
+
+fn v4_probe(src: &str, dst: &str, ttl: u8) -> Vec<u8> {
     let payload = [0u8; 8];
     let mut ip_data: Vec<u8> = vec![0; 20 + payload.len()];
     let mut ip = MutableIpv4Packet::new(&mut ip_data).unwrap();
     ip.set_version(4);
     ip.set_header_length(5);
-    ip.set_source("10.0.0.1".parse().unwrap());
+    ip.set_source(src.parse().unwrap());
     ip.set_destination(dst.parse().unwrap());
     ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
     ip.set_total_length(20 + payload.len() as u16);
@@ -1383,6 +1417,12 @@ fn ipv6_mcast_ff02_hop_limit_zero_to_scrimlet() -> Result<(), anyhow::Error> {
     assert_v6_to_scrimlet(&probe, "ff02:: packet with hop_limit=0")
 }
 
+#[test]
+fn ipv6_mcast_ff02_hop_limit_255_to_scrimlet() -> Result<(), anyhow::Error> {
+    let probe = mcast_v6_probe("ff02::fb", 255);
+    assert_v6_to_scrimlet(&probe, "ff02::fb packet with hop_limit=255")
+}
+
 fn assert_v6_to_scrimlet(
     probe: &[u8],
     what: &str,
@@ -1460,9 +1500,9 @@ fn sidecar_wrap(egress: u16, ethertype: u16, l3: &[u8]) -> Vec<u8> {
 // Send `probe` from the scrimlet side (port 0) toward port 1 and collect what
 // exits port 1.
 //
-// No replication group or NAT entry is installed: ingress returns early through
-// fwd_from_scrimlet, which forwards out sc_egress without looking at the
-// multicast tables.
+// No replication group or NAT entry is installed: ingress returns early after
+// fwd_from_scrimlet without looking at the multicast tables. IPv6 link-local
+// multicast goes out sc_egress, and all other multicast is dropped.
 fn scrimlet_mcast_copies(
     ethertype: u16,
     probe: &[u8],
@@ -1486,13 +1526,13 @@ fn scrimlet_mcast_copies(
     npu.run();
 
     let frame = sidecar_wrap(1, ethertype, probe);
-    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &frame)])?;
+    let sentinel = sidecar_wrap(1, ETHERTYPE_IPV4, &sentinel_v4());
+    phy0.send(&[
+        TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &frame),
+        TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &sentinel),
+    ])?;
 
-    wait_for(
-        || phy1.recv_buffer_len() > 0,
-        "scrimlet multicast on port 1",
-    );
-    let frames = phy1.recv();
+    let frames = recv_until_sentinel(&phy1, "scrimlet sentinel on port 1");
     for f in &frames {
         assert_eq!(f.src, phy0.mac, "scrimlet src MAC not rewritten");
         assert_eq!(f.dst, phy1.mac, "scrimlet dst MAC not rewritten");
@@ -1500,32 +1540,47 @@ fn scrimlet_mcast_copies(
     Ok(frames)
 }
 
-// The scrimlet's own TTL-1 multicast (e.g., IGMP reports) is a
-// transmission vs being a forwarding hop. The packet leaves unchanged, while
-// the same packet from a front port is dropped.
 #[test]
-fn scrimlet_ipv4_mcast_ttl1_forwarded() -> Result<(), anyhow::Error> {
-    let probe = mcast_v4_probe("238.1.1.1", 1);
-    let fs = scrimlet_mcast_copies(ETHERTYPE_IPV4, &probe)?;
-    assert_eq!(fs.len(), 1, "one copy out the sidecar egress port");
-    assert_eq!(fs[0].ethertype, ETHERTYPE_IPV4, "sidecar header stripped");
-    let ip = Ipv4Packet::new(&fs[0].payload).unwrap();
-    assert_eq!(ip.get_ttl(), 1, "scrimlet transmission keeps its TTL");
+fn scrimlet_ipv4_mcast_dropped() -> Result<(), anyhow::Error> {
+    for ttl in [0, 1, 64, 255] {
+        let probe = mcast_v4_probe("238.1.1.1", ttl);
+        let fs = scrimlet_mcast_copies(ETHERTYPE_IPV4, &probe)?;
+        assert!(
+            fs.is_empty(),
+            "scrimlet IPv4 multicast at TTL {ttl} should be dropped"
+        );
+    }
     Ok(())
 }
 
-// IPv6 counterpart of the above.
-//
-// The group is ff0e because the parser already admits link-local multicast
-// at hop_limit 1 and should not exercise the exemption.
 #[test]
-fn scrimlet_ipv6_mcast_hop_limit1_forwarded() -> Result<(), anyhow::Error> {
-    let probe = mcast_v6_probe("ff0e::1", 1);
-    let fs = scrimlet_mcast_copies(ETHERTYPE_IPV6, &probe)?;
-    assert_eq!(fs.len(), 1, "one copy out the sidecar egress port");
-    assert_eq!(fs[0].ethertype, ETHERTYPE_IPV6, "sidecar header stripped");
-    let ip = Ipv6Packet::new(&fs[0].payload).unwrap();
-    assert_eq!(ip.get_hop_limit(), 1, "scrimlet transmission keeps its hop");
+fn scrimlet_ipv6_mcast_dropped() -> Result<(), anyhow::Error> {
+    for hop_limit in [0, 1, 64, 255] {
+        let probe = mcast_v6_probe("ff0e::1", hop_limit);
+        let fs = scrimlet_mcast_copies(ETHERTYPE_IPV6, &probe)?;
+        assert!(
+            fs.is_empty(),
+            "scrimlet ff0e:: multicast at hop limit {hop_limit} should be \
+             dropped"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn scrimlet_ipv6_link_local_mcast_forwarded() -> Result<(), anyhow::Error> {
+    for hop_limit in [0, 1, 64, 255] {
+        let probe = mcast_v6_probe("ff02::1", hop_limit);
+        let fs = scrimlet_mcast_copies(ETHERTYPE_IPV6, &probe)?;
+        assert_eq!(fs.len(), 1, "one copy out the sidecar egress port");
+        assert_eq!(fs[0].ethertype, ETHERTYPE_IPV6, "sidecar header stripped");
+        let ip = Ipv6Packet::new(&fs[0].payload).unwrap();
+        assert_eq!(
+            ip.get_hop_limit(),
+            hop_limit,
+            "scrimlet transmission keeps its hop limit"
+        );
+    }
     Ok(())
 }
 
@@ -3441,6 +3496,172 @@ fn mcast_suppression_drops_when_only_group_zeroed() -> Result<(), anyhow::Error>
         "port 2 should not receive (underlay suppressed)"
     );
 
+    Ok(())
+}
+
+#[test]
+fn resolver_miss() -> Result<(), anyhow::Error> {
+    const NEXTHOP4: &str = "1.2.3.1";
+    const NEXTHOP6: &str = "fe80::1";
+    const DST_PORT: u16 = 0x0001; // Routes installed via DST_PORT
+    const SRC_PORT: u16 = 0x0002; // Packets injected from SRC_PORT
+
+    let mut pipeline = main_pipeline::new(1);
+    router_pipeline_init(&mut pipeline, NEXTHOP4, DST_PORT, NEXTHOP6, DST_PORT);
+
+    let mut npu = SoftNpu::new(3, pipeline, false);
+    let phy0 = npu.phy(USER_SPACE_SERVICE_PORT.into()); // scrimlet port
+    let phy1 = npu.phy(DST_PORT.into());
+    let phy2 = npu.phy(SRC_PORT.into());
+
+    npu.run();
+
+    // IPv4 setup
+    const DST4: &str = "100.64.0.1";
+    const SRC4: &str = "10.0.0.1";
+    let probe4 = v4_probe(SRC4, DST4, 255);
+    let probe4_desc = format!("IPv4 packet (dst={DST4}, src={SRC4}, ttl=255)");
+
+    // Send IPv4 probe from port 1 so scrimlet (port 0) can receive it.
+    phy2.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV4, &probe4)])?;
+
+    wait_for(
+        || phy0.recv_buffer_len() > 0,
+        &format!("scrimlet should receive {probe4_desc}"),
+    );
+    let maybe_sidecar = phy0.recv().remove(0);
+    let maybe_arp_needed =
+        SidecarPacket::new(&maybe_sidecar.payload).expect("sidecar header");
+
+    assert_eq!(
+        maybe_arp_needed.get_sc_code(),
+        SC_ARP_NEEDED,
+        "{probe4_desc} should arrive with sidecar code SC_ARP_NEEDED"
+    );
+    assert_eq!(
+        maybe_arp_needed.get_sc_egress(),
+        DST_PORT,
+        "{probe4_desc} should arrive with sidecar egress {DST_PORT}"
+    );
+    assert_eq!(
+        Ipv4Addr::from_octets(
+            // for sc_code=SC_ARP_NEEDED, the lower 4 bytes are the IPv4 nexthop
+            maybe_arp_needed.get_sc_payload_raw()[12..16]
+                .try_into()
+                .unwrap()
+        ),
+        NEXTHOP4.parse::<Ipv4Addr>().unwrap(),
+        "{probe4_desc} should arrive with sidecar payload {NEXTHOP4}"
+    );
+
+    // IPv6 setup
+    const DST6: &str = "fd00:1::1";
+    const SRC6: &str = "fd00:1::99";
+    let probe6 = v6_probe(SRC6, DST6, 255);
+    let probe6_desc =
+        format!("IPv6 packet (dst={DST6}, src={SRC6}, hop-limit=255)");
+
+    // Send IPv6 probe from port 1 so scrimlet (port 0) can receive it.
+    phy2.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV6, &probe6)])?;
+
+    wait_for(
+        || phy0.recv_buffer_len() > 0,
+        &format!("scrimlet should receive {probe6_desc}"),
+    );
+    let maybe_sidecar = phy0.recv().remove(0);
+    let maybe_ndp_needed =
+        SidecarPacket::new(&maybe_sidecar.payload).expect("sidecar header");
+
+    assert_eq!(
+        maybe_ndp_needed.get_sc_code(),
+        SC_NEIGHBOR_NEEDED,
+        "{probe6_desc} should arrive with sidecar code SC_NEIGHBOR_NEEDED"
+    );
+    assert_eq!(
+        maybe_ndp_needed.get_sc_egress(),
+        DST_PORT,
+        "{probe6_desc} should arrive with sidecar egress {DST_PORT}"
+    );
+    assert_eq!(
+        Ipv6Addr::from_octets(
+            // for sc_code=SC_NEIGHBOR_NEEDED, the payload is the IPv6 nexthop
+            maybe_ndp_needed.get_sc_payload_raw().try_into().unwrap()
+        ),
+        NEXTHOP6.parse::<Ipv6Addr>().unwrap(),
+        "{probe6_desc} should arrive with sidecar payload {NEXTHOP6}"
+    );
+
+    Ok(())
+}
+
+// Route everything out port 1 via nexthops with no resolver entries,
+// so every resolver lookup misses.
+fn resolver_miss_pipeline() -> main_pipeline {
+    let mut pipeline = main_pipeline::new(3);
+    router_pipeline_init(&mut pipeline, "1.2.3.1", 1, "fe80::1", 1);
+    pipeline
+}
+
+// A packet routed back out its ingress port is dropped regardless of the action
+// that control resolver takes
+#[test]
+fn resolver_miss_reflection_dropped() -> Result<(), anyhow::Error> {
+    let mut pipeline = resolver_miss_pipeline();
+    let sentinel_dst = sentinel_route_v4(&mut pipeline, 2);
+
+    let mut npu = SoftNpu::new(3, pipeline, false);
+    let (phy0, phy1, phy2) = (npu.phy(0), npu.phy(1), npu.phy(2));
+    npu.run();
+
+    let probe = v4_probe("10.0.0.1", "100.64.0.1", 255);
+    let sentinel = sentinel_v4_to(&sentinel_dst);
+    phy1.send(&[
+        TxFrame::new(phy1.mac, ETHERTYPE_IPV4, &probe),
+        TxFrame::new(phy2.mac, ETHERTYPE_IPV4, &sentinel),
+    ])?;
+
+    // sentinel is sent last, so once it's present the probe should be too
+    recv_until_sentinel(&phy2, "sentinel on port 2");
+    assert_eq!(phy0.recv_buffer_len(), 0, "probe punted to the scrimlet");
+    assert_eq!(phy1.recv_buffer_len(), 0, "probe reflected out port 1");
+    Ok(())
+}
+
+// A packet punted upon resolver miss keeps the sender's source MAC. When
+// userspace sends it back, it gets the egress port's source MAC.
+#[test]
+fn resolver_miss_smac_rewrite() -> Result<(), anyhow::Error> {
+    let mut pipeline = resolver_miss_pipeline();
+    // Give ports 0 and 1 source MACs 02:00:00:00:00:00 and 02:00:00:00:00:01
+    // (mac_rewrite_entry takes the bytes in reverse order). Without an entry
+    // for port 0, rewriting a punted packet would be a no-op and go unnoticed.
+    for port in [0u16, 1] {
+        let (key, param) = mac_rewrite_entry(port, [port as u8, 0, 0, 0, 0, 2]);
+        pipeline.add_ingress_mac_mac_rewrite_entry("rewrite", &key, &param, 0);
+    }
+
+    let mut npu = SoftNpu::new(3, pipeline, false);
+    let (phy0, phy1, phy2) = (npu.phy(0), npu.phy(1), npu.phy(2));
+    npu.run();
+
+    let probe = v4_probe("10.0.0.1", "100.64.0.1", 255);
+    phy2.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV4, &probe)])?;
+    wait_for(|| phy0.recv_buffer_len() > 0, "punted probe on port 0");
+    let punted = phy0.recv().remove(0);
+    assert_eq!(punted.src, phy2.mac, "punted probe keeps the sender's SMAC");
+
+    // Send it back the way tfportd does once the nexthop resolves.
+    let mut frame = punted.payload;
+    MutableSidecarPacket::new(&mut frame)
+        .unwrap()
+        .set_sc_code(SC_FWD_FROM_USERSPACE);
+    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &frame)])?;
+    wait_for(
+        || phy1.recv_buffer_len() > 0,
+        "retransmitted probe on port 1",
+    );
+    let forwarded = phy1.recv().remove(0);
+    assert_eq!(forwarded.src, [2, 0, 0, 0, 0, 1], "port 1's SMAC");
     Ok(())
 }
 
