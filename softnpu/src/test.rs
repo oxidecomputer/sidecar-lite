@@ -1573,10 +1573,7 @@ fn scrimlet_ipv6_link_local_mcast_forwarded() -> Result<(), anyhow::Error> {
         let probe = mcast_v6_probe("ff02::1", hop_limit);
         let fs = scrimlet_mcast_copies(ETHERTYPE_IPV6, &probe)?;
         assert_eq!(fs.len(), 1, "one copy out the sidecar egress port");
-        assert_eq!(
-            fs[0].ethertype, ETHERTYPE_IPV6,
-            "sidecar header stripped"
-        );
+        assert_eq!(fs[0].ethertype, ETHERTYPE_IPV6, "sidecar header stripped");
         let ip = Ipv6Packet::new(&fs[0].payload).unwrap();
         assert_eq!(
             ip.get_hop_limit(),
