@@ -1417,6 +1417,12 @@ fn ipv6_mcast_ff02_hop_limit_zero_to_scrimlet() -> Result<(), anyhow::Error> {
     assert_v6_to_scrimlet(&probe, "ff02:: packet with hop_limit=0")
 }
 
+#[test]
+fn ipv6_mcast_ff02_hop_limit_255_to_scrimlet() -> Result<(), anyhow::Error> {
+    let probe = mcast_v6_probe("ff02::fb", 255);
+    assert_v6_to_scrimlet(&probe, "ff02::fb packet with hop_limit=255")
+}
+
 fn assert_v6_to_scrimlet(
     probe: &[u8],
     what: &str,
@@ -1521,12 +1527,10 @@ fn scrimlet_mcast_copies(
 
     let frame = sidecar_wrap(1, ethertype, probe);
     phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &frame)])?;
+    let sentinel = sidecar_wrap(1, ETHERTYPE_IPV4, &sentinel_v4());
+    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &sentinel)])?;
 
-    wait_for(
-        || phy1.recv_buffer_len() > 0,
-        "scrimlet multicast on port 1",
-    );
-    let frames = phy1.recv();
+    let frames = recv_until_sentinel(&phy1, "scrimlet sentinel on port 1");
     for f in &frames {
         assert_eq!(f.src, phy0.mac, "scrimlet src MAC not rewritten");
         assert_eq!(f.dst, phy1.mac, "scrimlet dst MAC not rewritten");
@@ -1534,32 +1538,50 @@ fn scrimlet_mcast_copies(
     Ok(frames)
 }
 
-// The scrimlet's own TTL-1 multicast (e.g., IGMP reports) is a
-// transmission vs being a forwarding hop. The packet leaves unchanged, while
-// the same packet from a front port is dropped.
 #[test]
-fn scrimlet_ipv4_mcast_ttl1_forwarded() -> Result<(), anyhow::Error> {
-    let probe = mcast_v4_probe("238.1.1.1", 1);
-    let fs = scrimlet_mcast_copies(ETHERTYPE_IPV4, &probe)?;
-    assert_eq!(fs.len(), 1, "one copy out the sidecar egress port");
-    assert_eq!(fs[0].ethertype, ETHERTYPE_IPV4, "sidecar header stripped");
-    let ip = Ipv4Packet::new(&fs[0].payload).unwrap();
-    assert_eq!(ip.get_ttl(), 1, "scrimlet transmission keeps its TTL");
+fn scrimlet_ipv4_mcast_dropped() -> Result<(), anyhow::Error> {
+    for ttl in [0, 1, 64, 255] {
+        let probe = mcast_v4_probe("238.1.1.1", ttl);
+        let fs = scrimlet_mcast_copies(ETHERTYPE_IPV4, &probe)?;
+        assert!(
+            fs.is_empty(),
+            "scrimlet IPv4 multicast at TTL {ttl} should be dropped"
+        );
+    }
     Ok(())
 }
 
-// IPv6 counterpart of the above.
-//
-// The group is ff0e because the parser already admits link-local multicast
-// at hop_limit 1 and should not exercise the exemption.
 #[test]
-fn scrimlet_ipv6_mcast_hop_limit1_forwarded() -> Result<(), anyhow::Error> {
-    let probe = mcast_v6_probe("ff0e::1", 1);
-    let fs = scrimlet_mcast_copies(ETHERTYPE_IPV6, &probe)?;
-    assert_eq!(fs.len(), 1, "one copy out the sidecar egress port");
-    assert_eq!(fs[0].ethertype, ETHERTYPE_IPV6, "sidecar header stripped");
-    let ip = Ipv6Packet::new(&fs[0].payload).unwrap();
-    assert_eq!(ip.get_hop_limit(), 1, "scrimlet transmission keeps its hop");
+fn scrimlet_ipv6_mcast_dropped() -> Result<(), anyhow::Error> {
+    for hop_limit in [0, 1, 64, 255] {
+        let probe = mcast_v6_probe("ff0e::1", hop_limit);
+        let fs = scrimlet_mcast_copies(ETHERTYPE_IPV6, &probe)?;
+        assert!(
+            fs.is_empty(),
+            "scrimlet ff0e:: multicast at hop limit {hop_limit} should be \
+             dropped"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn scrimlet_ipv6_link_local_mcast_forwarded() -> Result<(), anyhow::Error> {
+    for hop_limit in [0, 1, 64, 255] {
+        let probe = mcast_v6_probe("ff02::1", hop_limit);
+        let fs = scrimlet_mcast_copies(ETHERTYPE_IPV6, &probe)?;
+        assert_eq!(fs.len(), 1, "one copy out the sidecar egress port");
+        assert_eq!(
+            fs[0].ethertype, ETHERTYPE_IPV6,
+            "sidecar header stripped"
+        );
+        let ip = Ipv6Packet::new(&fs[0].payload).unwrap();
+        assert_eq!(
+            ip.get_hop_limit(),
+            hop_limit,
+            "scrimlet transmission keeps its hop limit"
+        );
+    }
     Ok(())
 }
 
