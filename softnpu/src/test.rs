@@ -1500,9 +1500,9 @@ fn sidecar_wrap(egress: u16, ethertype: u16, l3: &[u8]) -> Vec<u8> {
 // Send `probe` from the scrimlet side (port 0) toward port 1 and collect what
 // exits port 1.
 //
-// No replication group or NAT entry is installed: ingress returns early through
-// fwd_from_scrimlet, which forwards out sc_egress without looking at the
-// multicast tables.
+// No replication group or NAT entry is installed: ingress returns early after
+// fwd_from_scrimlet without looking at the multicast tables. IPv6 link-local
+// multicast goes out sc_egress, and all other multicast is dropped.
 fn scrimlet_mcast_copies(
     ethertype: u16,
     probe: &[u8],
