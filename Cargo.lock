@@ -1950,7 +1950,7 @@ dependencies = [
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
+source = "git+https://github.com/matoushybl/p4?branch=eitri%2Fdeploy#505e9616b8dd1f99e34593d63c313aa9a0621904"
 dependencies = [
  "colored",
  "regex",
@@ -1959,7 +1959,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
+source = "git+https://github.com/matoushybl/p4?branch=eitri%2Fdeploy#505e9616b8dd1f99e34593d63c313aa9a0621904"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1972,7 +1972,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
+source = "git+https://github.com/matoushybl/p4?branch=eitri%2Fdeploy#505e9616b8dd1f99e34593d63c313aa9a0621904"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1980,6 +1980,17 @@ dependencies = [
  "quote",
  "syn 2.0.117",
  "tempfile",
+]
+
+[[package]]
+name = "p4rs"
+version = "0.1.0"
+source = "git+https://github.com/matoushybl/p4?branch=eitri%2Fdeploy#505e9616b8dd1f99e34593d63c313aa9a0621904"
+dependencies = [
+ "bitvec",
+ "num",
+ "serde",
+ "usdt 0.5.0",
 ]
 
 [[package]]
@@ -2669,7 +2680,7 @@ dependencies = [
  "libc",
  "macaddr",
  "num",
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/matoushybl/p4?branch=eitri%2Fdeploy)",
  "serde",
  "serde_json",
  "softnpu",
@@ -2925,7 +2936,7 @@ dependencies = [
  "colored",
  "num",
  "p4-macro",
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/matoushybl/p4?branch=eitri%2Fdeploy)",
  "pnet",
  "pnet_macros",
  "pnet_macros_support",
@@ -3105,7 +3116,7 @@ name = "softnpu"
 version = "0.2.0"
 source = "git+https://github.com/oxidecomputer/softnpu?branch=main#77ba891f8b8c2288ac8d01d3c372892ad1111592"
 dependencies = [
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/oxidecomputer/p4?branch=main)",
  "serde",
  "serde_json",
  "tokio",
@@ -3286,14 +3297,14 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
+source = "git+https://github.com/matoushybl/p4?branch=eitri%2Fdeploy#505e9616b8dd1f99e34593d63c313aa9a0621904"
 dependencies = [
  "anyhow",
  "bitvec",
  "colored",
  "num",
  "p4-macro",
- "p4rs",
+ "p4rs 0.1.0 (git+https://github.com/matoushybl/p4?branch=eitri%2Fdeploy)",
  "pnet",
  "rand 0.9.4",
  "usdt 0.5.0",
