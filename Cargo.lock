@@ -1950,7 +1950,7 @@ dependencies = [
 [[package]]
 name = "p4"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
+source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fupsert-table-entries#b9baa79b4dc277501f860325da34403b89fb4ee9"
 dependencies = [
  "colored",
  "regex",
@@ -1959,7 +1959,7 @@ dependencies = [
 [[package]]
 name = "p4-macro"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
+source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fupsert-table-entries#b9baa79b4dc277501f860325da34403b89fb4ee9"
 dependencies = [
  "p4",
  "p4-rust",
@@ -1972,7 +1972,7 @@ dependencies = [
 [[package]]
 name = "p4-rust"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
+source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fupsert-table-entries#b9baa79b4dc277501f860325da34403b89fb4ee9"
 dependencies = [
  "p4",
  "prettyplease",
@@ -1985,7 +1985,7 @@ dependencies = [
 [[package]]
 name = "p4rs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
+source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fupsert-table-entries#b9baa79b4dc277501f860325da34403b89fb4ee9"
 dependencies = [
  "bitvec",
  "num",
@@ -3103,7 +3103,7 @@ dependencies = [
 [[package]]
 name = "softnpu"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#77ba891f8b8c2288ac8d01d3c372892ad1111592"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=zl%2Ftable-clear#618a149ff169ed8a9c1620a3b1a2410f5cf5d53b"
 dependencies = [
  "p4rs",
  "serde",
@@ -3114,7 +3114,7 @@ dependencies = [
 [[package]]
 name = "softnpu-client"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/softnpu?branch=main#77ba891f8b8c2288ac8d01d3c372892ad1111592"
+source = "git+https://github.com/oxidecomputer/softnpu?branch=zl%2Ftable-clear#618a149ff169ed8a9c1620a3b1a2410f5cf5d53b"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -3286,7 +3286,7 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/p4?branch=main#c8b190f46901d4c1b8eef1ca35be243b18653471"
+source = "git+https://github.com/oxidecomputer/p4?branch=zl%2Fupsert-table-entries#b9baa79b4dc277501f860325da34403b89fb4ee9"
 dependencies = [
  "anyhow",
  "bitvec",
