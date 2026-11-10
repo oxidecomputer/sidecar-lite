@@ -27,40 +27,6 @@ control ingress(
     ipv4_ttl_decrement() ttl_dec;
 
     apply {
-        //
-        // Check if this is a packet coming from the scrimlet. If so just
-        // forward it out the source port indicated by the sidecar header.
-        //
-        if (hdr.sidecar.isValid()) {
-            fwd_from_scrimlet();
-            // TODO: Combine these checks when x4c supports && and ||.
-            if (hdr.ipv4.isValid()) {
-                if (hdr.ipv4.dst[31:28] == 4w0xe) {
-                    egress.drop = true;
-                    return;
-                }
-            }
-            if (hdr.ipv6.isValid()) {
-                // Link-local multicast retains the userspace MACs.
-                if (hdr.ipv6.dst[127:112] == 16w0xff02) { return; }
-                if (hdr.ipv6.dst[127:120] == 8w0xff) {
-                    egress.drop = true;
-                    return;
-                }
-            }
-            mac.apply(hdr, egress);
-            return;
-        }
-
-        ///
-        /// Check if we need to proxy arp this packet.
-        ///
-        if (hdr.arp.isValid()) {
-            bool proxied = false;
-            pxarp.apply(hdr, ingress, egress, proxied);
-            if (proxied) { return; }
-        }
-
         bool mcast_dst = false;
         if (hdr.ipv6.isValid()) {
             if (hdr.ipv6.dst[127:120] == 8w0xff) { mcast_dst = true; }
@@ -96,6 +62,43 @@ control ingress(
         }
 
         //
+        // Check if this is a packet coming from the scrimlet:
+        //
+        // - Unicast is forwarded out the port indicated by the sidecar header,
+        //   with its source MAC rewritten for that specific port.
+        //
+        // - IPv6 link-local multicast is forwarded out the same port, keeping
+        //   the MACs set by userspace.
+        //
+        // - Other multicast packets have the sidecar header removed and
+        //   continue through to the multicast path below.
+        //
+        if (hdr.sidecar.isValid()) {
+            bool link_local_mcast = false;
+            if (hdr.ipv6.isValid()) {
+                if (hdr.ipv6.dst[127:112] == 16w0xff02) {
+                    link_local_mcast = true;
+                }
+            }
+            if (link_local_mcast) { fwd_from_scrimlet(); return; }
+            if (mcast_dst == false) {
+                fwd_from_scrimlet();
+                mac.apply(hdr, egress);
+                return;
+            }
+            decap_sidecar();
+        }
+
+        ///
+        /// Check if we need to proxy arp this packet.
+        ///
+        if (hdr.arp.isValid()) {
+            bool proxied = false;
+            pxarp.apply(hdr, ingress, egress, proxied);
+            if (proxied) { return; }
+        }
+
+        //
         // If the packet has a local destination, create the sidecar header and
         // send it to the scrimlet.
         //
@@ -115,7 +118,9 @@ control ingress(
             // Multicast with TTL/hop_limit <= 1 must not be forwarded
             // (RFC 1112, RFC 8200 section 3). The check lives here, not in
             // the parser, because link-local scrimlet transmissions return
-            // earlier through fwd_from_scrimlet and must not be dropped.
+            // earlier through fwd_from_scrimlet and must not be dropped. Other
+            // scrimlet multicast gets checked here, just like in dendrite's
+            // parser.
             if (mcast_dst) {
                 if (hdr.ipv4.isValid()) {
                     if (hdr.ipv4.ttl <= 8w1) { egress.drop = true; return; }
@@ -143,8 +148,9 @@ control ingress(
         // whose default_action is drop. Each replica's destination and
         // source MACs are derived in the egress control instead.
         //
-        // IPv6 link-local multicast (ff02::/16) never reaches this point; it is
-        // marked local and handled by the earlier local path. The parser
+        // IPv6 link-local multicast (ff02::/16) never reaches this point. From
+        // a front port it is marked local and handled by the earlier local
+        // path; from the scrimlet it leaves through fwd_from_scrimlet. The parser
         // rejects interface-local scope multicast, while expired multicast
         // (TTL/hop_limit <= 1) gets dropped on the non-local path above.
         //
@@ -299,7 +305,10 @@ control ingress(
         //  Direct packets to the sidecar port corresponding to the scrimlet
         //  port they came from.
         egress.port = hdr.sidecar.sc_egress;
-        // Decap the sidecar header.
+        decap_sidecar();
+    }
+
+    action decap_sidecar() {
         hdr.ethernet.ether_type = hdr.sidecar.sc_ether_type;
         hdr.sidecar.setInvalid();
     }
