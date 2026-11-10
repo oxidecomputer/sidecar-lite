@@ -27,137 +27,8 @@ control ingress(
     ipv4_ttl_decrement() ttl_dec;
 
     apply {
-        bool mcast_dst = false;
-        if (hdr.ipv6.isValid()) {
-            if (hdr.ipv6.dst[127:120] == 8w0xff) { mcast_dst = true; }
-        }
-        if (hdr.ipv4.isValid()) {
-            if (hdr.ipv4.dst[31:28] == 4w0xe) { mcast_dst = true; }
-        }
-
-        if (mcast_dst) {
-            if (hdr.ipv4.isValid()) {
-                // 01:00:5e + zero bit, then the low 23 bits of the
-                // group (RFC 1112 section 6.4).
-                if (hdr.ethernet.dst[47:23] != 25w0x0200bc) {
-                    egress.drop = true;
-                    return;
-                }
-                if (hdr.ethernet.dst[22:0] != hdr.ipv4.dst[22:0]) {
-                    egress.drop = true;
-                    return;
-                }
-            }
-
-            if (hdr.ipv6.isValid()) {
-                if (hdr.ethernet.dst[47:32] != 16w0x3333) {
-                    egress.drop = true;
-                    return;
-                }
-                if (hdr.ethernet.dst[31:0] != hdr.ipv6.dst[31:0]) {
-                    egress.drop = true;
-                    return;
-                }
-            }
-        }
-
-        //
-        // Check if this is a packet coming from the scrimlet:
-        //
-        // - Unicast is forwarded out the port indicated by the sidecar header,
-        //   with its source MAC rewritten for that specific port.
-        //
-        // - IPv6 link-local multicast is forwarded out the same port, keeping
-        //   the MACs set by userspace.
-        //
-        // - Other multicast packets have the sidecar header removed and
-        //   continue through to the multicast path below.
-        //
-        if (hdr.sidecar.isValid()) {
-            bool link_local_mcast = false;
-            if (hdr.ipv6.isValid()) {
-                if (hdr.ipv6.dst[127:112] == 16w0xff02) {
-                    link_local_mcast = true;
-                }
-            }
-            if (link_local_mcast) { fwd_from_scrimlet(); return; }
-            if (mcast_dst == false) {
-                fwd_from_scrimlet();
-                mac.apply(hdr, egress);
-                return;
-            }
-            decap_sidecar();
-        }
-
-        ///
-        /// Check if we need to proxy arp this packet.
-        ///
-        if (hdr.arp.isValid()) {
-            bool proxied = false;
-            pxarp.apply(hdr, ingress, egress, proxied);
-            if (proxied) { return; }
-        }
-
-        //
-        // If the packet has a local destination, create the sidecar header and
-        // send it to the scrimlet.
-        //
-        bool local_dst = false;
-        local.apply(ingress, hdr, local_dst);
-        if (local_dst) {
-            // If this is boundary services packet, it should have a geneve
-            // header. Decap and attempt to route.
-            if (hdr.geneve.isValid()) {
-                ingress.nat_egress_hit = true;
-                decap_geneve();
-            }
-            // If there is no geneve header this is a packet from outside the
-            // rack and should be sent to the scrimlet.
-            else { fwd_to_scrimlet(); return; }
-        } else {
-            // Multicast with TTL/hop_limit <= 1 must not be forwarded
-            // (RFC 1112, RFC 8200 section 3). The check lives here, not in
-            // the parser, because link-local scrimlet transmissions return
-            // earlier through fwd_from_scrimlet and must not be dropped. Other
-            // scrimlet multicast gets checked here, just like in dendrite's
-            // parser.
-            if (mcast_dst) {
-                if (hdr.ipv4.isValid()) {
-                    if (hdr.ipv4.ttl <= 8w1) { egress.drop = true; return; }
-                }
-                if (hdr.ipv6.isValid()) {
-                    if (hdr.ipv6.hop_limit <= 8w1) {
-                        egress.drop = true;
-                        return;
-                    }
-                }
-            } else {
-                attached.apply(ingress, hdr);
-            }
-            if (hdr.geneve.isValid() == false) {
-                nat.apply(hdr, ingress, egress); // check for ingress nat
-            }
-        }
-
-        //
-        // After local and NAT processing, basic packet forwarding happens.
-        //
-        // Unicast and multicast are bifurcated, mirroring dendrite's
-        // sidecar.p4 (the meta.is_mcast metadata check). Multicast traffic
-        // is replicated and bypasses the unicast nexthop resolver,
-        // whose default_action is drop. Each replica's destination and
-        // source MACs are derived in the egress control instead.
-        //
-        // IPv6 link-local multicast (ff02::/16) never reaches this point. From
-        // a front port it is marked local and handled by the earlier local
-        // path; from the scrimlet it leaves through fwd_from_scrimlet. The parser
-        // rejects interface-local scope multicast, while expired multicast
-        // (TTL/hop_limit <= 1) gets dropped on the non-local path above.
-        //
-        // IPv4 local network control (224.0.0.0/24, RFC 5771 section 4) is
-        // not dropped by address. The TTL check covers IGMP, OSPF and
-        // PIM, but senders such as mDNS and VRRP can use TTL 255.
         bool is_mcast = false;
+        // TODO: Combine these checks when x4c supports && and ||.
         if (hdr.ipv6.isValid()) {
             if (hdr.ipv6.dst[127:120] == 8w0xff) { is_mcast = true; }
         }
@@ -165,53 +36,171 @@ control ingress(
             if (hdr.ipv4.dst[31:28] == 4w0xe) { is_mcast = true; }
         }
 
-        if (is_mcast) {
-            if (hdr.vlan.isValid()) {
-                hdr.ethernet.ether_type = hdr.vlan.ether_type;
-                hdr.vlan.setInvalid();
+        //
+        // Check if this is a packet coming from the scrimlet. If so, just
+        // forward it out the source port indicated by the sidecar header.
+        //
+        if (hdr.sidecar.isValid()) {
+            fwd_from_scrimlet();
+        } else {
+            ///
+            /// Check if we need to proxy arp this packet.
+            ///
+            if (hdr.arp.isValid()) {
+                bool proxied = false;
+                pxarp.apply(hdr, ingress, egress, proxied);
+                if (proxied) { return; }
             }
-            mcast.apply(hdr, ingress, egress);
-            // Packet copies that keep their encapsulation are forwarded on the
-            // outer IPv6 header, losing a hop like dendrite's
-            // MulticastRouter6 (RFC 8200 section 3). Decapsulated copies
-            // have the inner header decremented before decap_geneve executes.
-            if (ingress.mcast_decap) {
-                validate_mcast_external();
-                if (egress.drop == false) {
-                    if (hdr.inner_ipv4.isValid()) {
-                        ttl_dec.apply(hdr.inner_ipv4);
+
+            if (is_mcast) {
+                if (hdr.ipv4.isValid()) {
+                    // 01:00:5e + zero bit, then the low 23 bits of the
+                    // group (RFC 1112 section 6.4).
+                    if (hdr.ethernet.dst[47:23] != 25w0x0200bc) {
+                        egress.drop = true;
+                        return;
                     }
-                    if (hdr.inner_ipv6.isValid()) {
-                        hdr.inner_ipv6.hop_limit =
-                            hdr.inner_ipv6.hop_limit - 8w1;
+                    if (hdr.ethernet.dst[22:0] != hdr.ipv4.dst[22:0]) {
+                        egress.drop = true;
+                        return;
                     }
+                }
+
+                if (hdr.ipv6.isValid()) {
+                    if (hdr.ethernet.dst[47:32] != 16w0x3333) {
+                        egress.drop = true;
+                        return;
+                    }
+                    if (hdr.ethernet.dst[31:0] != hdr.ipv6.dst[31:0]) {
+                        egress.drop = true;
+                        return;
+                    }
+                }
+            }
+
+            //
+            // If the packet has a local destination, create the sidecar header and
+            // send it to the scrimlet.
+            //
+            bool local_dst = false;
+            local.apply(ingress, hdr, local_dst);
+            if (local_dst) {
+                // If this is boundary services packet, it should have a geneve
+                // header. Decap and attempt to route.
+                if (hdr.geneve.isValid()) {
+                    ingress.nat_egress_hit = true;
                     decap_geneve();
                 }
+                // If there is no geneve header this is a packet from outside the
+                // rack and should be sent to the scrimlet.
+                else { fwd_to_scrimlet(); return; }
             } else {
-                if (hdr.ipv6.isValid()) {
-                    if (hdr.ipv6.hop_limit <= 8w1) { egress.drop = true; }
-                    if (egress.drop == false) {
-                        hdr.ipv6.hop_limit = hdr.ipv6.hop_limit - 8w1;
+                // Multicast with TTL/hop_limit <= 1 must not be forwarded
+                // (RFC 1112, RFC 8200 section 3). The check lives here, not in
+                // the parser, because scrimlet transmissions take the
+                // fwd_from_scrimlet branch and must not be dropped.
+                if (is_mcast) {
+                    if (hdr.ipv4.isValid()) {
+                        if (hdr.ipv4.ttl <= 8w1) { egress.drop = true; return; }
                     }
+                    if (hdr.ipv6.isValid()) {
+                        if (hdr.ipv6.hop_limit <= 8w1) {
+                            egress.drop = true;
+                            return;
+                        }
+                    }
+                } else {
+                    attached.apply(ingress, hdr);
+                }
+                if (hdr.geneve.isValid() == false) {
+                    nat.apply(hdr, ingress, egress); // check for ingress nat
                 }
             }
-            // An empty bitmap is equivalent to having no multicast group
-            // configured, and the packet is dropped.
+
             //
-            // This matches the default action of dendrite's
-            // mcast_replication_ipv6 (drop_mcastv6_admin_scoped_no_group).
-            // Neither pipeline sends an ICMP error for multicast (RFC 1812
-            // section 4.3.2.7).
-            if (egress.port_bitmap == 128w0) {
-                egress.drop = true;
+            // After local and NAT processing, basic packet forwarding happens.
+            //
+            // Unicast and multicast are bifurcated, mirroring dendrite's
+            // sidecar.p4 (the meta.is_mcast metadata check). Multicast traffic
+            // is replicated and bypasses the unicast nexthop resolver,
+            // whose default_action punts to the scrimlet. Each replica's
+            // destination and source MACs are derived in the egress control
+            // instead.
+            //
+            // IPv6 link-local multicast (ff02::/16) never reaches this point; it is
+            // marked local and handled by the earlier local path. The parser
+            // rejects interface-local scope multicast, while expired multicast
+            // (TTL/hop_limit <= 1) gets dropped on the non-local path above.
+            //
+            // IPv4 local network control (224.0.0.0/24, RFC 5771 section 4) is
+            // not dropped by address. The TTL check covers IGMP, OSPF and
+            // PIM, but senders such as mDNS and VRRP can use TTL 255.
+            is_mcast = false;
+            if (hdr.ipv6.isValid()) {
+                if (hdr.ipv6.dst[127:120] == 8w0xff) { is_mcast = true; }
             }
-        } else {
-            router.apply(hdr, ingress, egress);
-            // Prevent reflection. Multicast ingress-port suppression is
-            // handled in the replication bitmap, so this applies to
-            // unicast only.
-            if (ingress.port == egress.port) { egress.drop = true; } else {
-                resolver.apply(hdr, ingress, egress);
+            if (hdr.ipv4.isValid()) {
+                if (hdr.ipv4.dst[31:28] == 4w0xe) { is_mcast = true; }
+            }
+
+            if (is_mcast) {
+                if (hdr.vlan.isValid()) {
+                    hdr.ethernet.ether_type = hdr.vlan.ether_type;
+                    hdr.vlan.setInvalid();
+                }
+                mcast.apply(hdr, ingress, egress);
+                // Packet copies that keep their encapsulation are forwarded on the
+                // outer IPv6 header, losing a hop like dendrite's
+                // MulticastRouter6 (RFC 8200 section 3). Decapsulated copies
+                // have the inner header decremented before decap_geneve executes.
+                if (ingress.mcast_decap) {
+                    validate_mcast_external();
+                    if (egress.drop == false) {
+                        if (hdr.inner_ipv4.isValid()) {
+                            ttl_dec.apply(hdr.inner_ipv4);
+                        }
+                        if (hdr.inner_ipv6.isValid()) {
+                            hdr.inner_ipv6.hop_limit =
+                                hdr.inner_ipv6.hop_limit - 8w1;
+                        }
+                        decap_geneve();
+                    }
+                } else {
+                    if (hdr.ipv6.isValid()) {
+                        if (hdr.ipv6.hop_limit <= 8w1) { egress.drop = true; }
+                        if (egress.drop == false) {
+                            hdr.ipv6.hop_limit = hdr.ipv6.hop_limit - 8w1;
+                        }
+                    }
+                }
+                // An empty bitmap is equivalent to having no multicast group
+                // configured, and the packet is dropped.
+                //
+                // This matches the default action of dendrite's
+                // mcast_replication_ipv6 (drop_mcastv6_admin_scoped_no_group).
+                // Neither pipeline sends an ICMP error for multicast (RFC 1812
+                // section 4.3.2.7).
+                if (egress.port_bitmap == 128w0) {
+                    egress.drop = true;
+                }
+            } else {
+                router.apply(hdr, ingress, egress);
+                // Prevent reflection. Multicast ingress-port suppression is
+                // handled in the replication bitmap, so this applies to
+                // unicast only.
+                if (ingress.port == egress.port) { egress.drop = true; } else {
+                    resolver.apply(hdr, ingress, egress);
+                }
+            }
+        }
+
+        //
+        // Unicast has its source MAC rewritten for that port, but
+        // multicast is disregarded, as replicas get their MACs in the
+        // egress control, and multicast packets from the scrimlet
+        // continue on as userspace had sent it.
+        if (egress.drop == false) {
+            if (is_mcast == false) {
                 // Packets sent to scrimlet don't need their SMAC rewritten.
                 // If a resolver miss punts the packet and it gets retransmitted
                 // by tfportd (upon successful ARP/ND resolution), the SMAC is
@@ -305,10 +294,7 @@ control ingress(
         //  Direct packets to the sidecar port corresponding to the scrimlet
         //  port they came from.
         egress.port = hdr.sidecar.sc_egress;
-        decap_sidecar();
-    }
-
-    action decap_sidecar() {
+        // Decap the sidecar header.
         hdr.ethernet.ether_type = hdr.sidecar.sc_ether_type;
         hdr.sidecar.setInvalid();
     }

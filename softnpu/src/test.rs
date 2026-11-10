@@ -1500,10 +1500,9 @@ fn sidecar_wrap(egress: u16, ethertype: u16, l3: &[u8]) -> Vec<u8> {
 // Send `probe` from the scrimlet side (port 0) toward port 1 and collect what
 // exits port 1.
 //
-// No replication group or NAT entry is installed. IPv6 link-local multicast
-// exits through sc_egress, while all other multicast enters the multicast path
-// and is dropped, by the TTL check at TTL <= 1 and otherwise on the empty
-// bitmap.
+// No replication group or NAT entry is installed: ingress takes the
+// fwd_from_scrimlet path, which forwards out sc_egress without looking at the
+// multicast tables.
 fn scrimlet_mcast_copies(
     ethertype: u16,
     probe: &[u8],
@@ -1542,146 +1541,78 @@ fn scrimlet_mcast_copies(
     Ok(frames)
 }
 
+// The scrimlet's own multicast (e.g., TTL-1 IGMP reports) acts as a
+// transmission versus as a forwarding hop. The packet leaves unchanged at
+// any TTL, while the same packet from a front port is dropped at TTL <= 1
+// (except ff02, which is punted to the scrimlet).
 #[test]
-fn scrimlet_ipv6_link_local_mcast_forwarded() -> Result<(), anyhow::Error> {
-    for hop_limit in [0, 1, 64, 255] {
-        let probe = mcast_v6_probe("ff02::1", hop_limit);
-        let fs = scrimlet_mcast_copies(ETHERTYPE_IPV6, &probe)?;
-        assert_eq!(fs.len(), 1, "one copy out sc_egress");
-        assert_eq!(fs[0].ethertype, ETHERTYPE_IPV6, "sidecar header stripped");
-        let ip = Ipv6Packet::new(&fs[0].payload).unwrap();
-        assert_eq!(
-            ip.get_hop_limit(),
-            hop_limit,
-            "scrimlet transmission keeps its hop limit"
-        );
-    }
-    Ok(())
-}
-
-#[test]
-fn scrimlet_mcast_without_group_dropped() -> Result<(), anyhow::Error> {
-    for ttl in [64, 255] {
+fn scrimlet_mcast_forwarded() -> Result<(), anyhow::Error> {
+    for ttl in [0, 1, 64, 255] {
         let probe = mcast_v4_probe("238.1.1.1", ttl);
         let fs = scrimlet_mcast_copies(ETHERTYPE_IPV4, &probe)?;
-        assert!(fs.is_empty(), "238.1.1.1 at TTL {ttl} left sc_egress");
+        assert_eq!(fs.len(), 1, "238.1.1.1 at TTL {ttl} out sc_egress");
+        assert_eq!(fs[0].ethertype, ETHERTYPE_IPV4, "sidecar header stripped");
+        let ip = Ipv4Packet::new(&fs[0].payload).unwrap();
+        assert_eq!(ip.get_ttl(), ttl, "scrimlet transmission keeps its TTL");
 
-        let probe = mcast_v6_probe("ff0e::1", ttl);
-        let fs = scrimlet_mcast_copies(ETHERTYPE_IPV6, &probe)?;
-        assert!(fs.is_empty(), "ff0e::1 at hop limit {ttl} left sc_egress");
+        for group in ["ff02::1", "ff0e::1"] {
+            let probe = mcast_v6_probe(group, ttl);
+            let fs = scrimlet_mcast_copies(ETHERTYPE_IPV6, &probe)?;
+            assert_eq!(fs.len(), 1, "{group} at hop limit {ttl} out sc_egress");
+            assert_eq!(
+                fs[0].ethertype, ETHERTYPE_IPV6,
+                "sidecar header stripped"
+            );
+            let ip = Ipv6Packet::new(&fs[0].payload).unwrap();
+            assert_eq!(
+                ip.get_hop_limit(),
+                ttl,
+                "scrimlet transmission keeps its hop limit"
+            );
+        }
     }
     Ok(())
 }
 
 #[test]
-fn scrimlet_mcast_with_group_replicated() -> Result<(), anyhow::Error> {
-    let mut pipeline = mcast_ff0e_pipeline(&[1], &[2]);
-    let port2_sentinel = sentinel_route_v4(&mut pipeline, 2);
-    let mut src_mac = [0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0xee];
-    src_mac.reverse();
-    pipeline.add_egress_mcast_src_mac_entry(
-        "rewrite_src_mac",
-        &2u16.to_le_bytes(),
-        &src_mac,
-        0,
-    );
-    let mut npu = SoftNpu::new(3, pipeline, false);
-    let phy0 = npu.phy(0);
-    let phy1 = npu.phy(1);
-    let phy2 = npu.phy(2);
+fn scrimlet_non_ip_smac_rewritten() -> Result<(), anyhow::Error> {
+    let arp: [u8; 28] = [
+        0x00, 0x01, 0x08, 0x00, 0x06, 0x04, 0x00, 0x01, // request
+        0x02, 0x00, 0x00, 0x00, 0x00, 0x09, 10, 0, 0, 1, // sha, spa
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 10, 0, 0, 2, // tha, tpa
+    ];
+    let lldp: [u8; 8] = [0x02, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00];
+    let cases: [(u16, [u8; 6], &[u8]); 2] = [
+        (0x0806, [0xff; 6], &arp),
+        (0x88cc, [0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e], &lldp),
+    ];
 
-    npu.run();
+    for (ethertype, dst, payload) in cases {
+        let mut pipeline = main_pipeline::new(2);
+        pipeline_init(&mut pipeline);
+        let mut npu = SoftNpu::new(2, pipeline, false);
+        let phy0 = npu.phy(0);
+        let phy1 = npu.phy(1);
 
-    let ip_data = geneve_mcast_v4_pkt_repl(
-        "fd00:1::1",
-        "ff0e::1",
-        "10.0.0.1",
-        "238.1.1.1",
-        Some(MCAST_TAG_UNDERLAY),
-    );
-    let frame = sidecar_wrap(0, ETHERTYPE_IPV6, &ip_data);
-    phy0.send(&[TxFrame::new(
-        l2_dst(phy1.mac, ETHERTYPE_IPV6, &ip_data),
-        ETHERTYPE_SIDECAR,
-        &frame,
-    )])?;
-    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV4, &sentinel_v4())])?;
-    phy0.send(&[TxFrame::new(
-        phy2.mac,
-        ETHERTYPE_IPV4,
-        &sentinel_v4_to(&port2_sentinel),
-    )])?;
+        npu.run();
 
-    let port1 = recv_until_sentinel(&phy1, "port 1 sentinel");
-    assert!(
-        port1.is_empty(),
-        "external copy suppressed by the underlay tag"
-    );
+        let frame = sidecar_wrap(1, ethertype, payload);
+        let sentinel = sidecar_wrap(1, ETHERTYPE_IPV4, &sentinel_v4());
+        phy0.send(&[
+            TxFrame::new(dst, ETHERTYPE_SIDECAR, &frame),
+            TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &sentinel),
+        ])?;
 
-    let port2 = recv_until_sentinel(&phy2, "port 2 sentinel");
-    assert_eq!(port2.len(), 1, "one underlay copy on port 2");
-    assert_eq!(
-        port2[0].ethertype, ETHERTYPE_IPV6,
-        "sidecar header stripped"
-    );
-    assert_eq!(
-        port2[0].src,
-        [0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0xee],
-        "port 2's SMAC"
-    );
-    assert_eq!(port2[0].dst, [0x33, 0x33, 0, 0, 0, 1], "DMAC from ff0e::1");
-    let ip = Ipv6Packet::new(&port2[0].payload).unwrap();
-    assert_eq!(
-        ip.get_destination(),
-        "ff0e::1".parse::<Ipv6Addr>().unwrap(),
-        "copy keeps its encapsulation"
-    );
-    assert_eq!(ip.get_hop_limit(), 63, "outer hop limit decremented");
-    assert_eq!(phy0.recv_buffer_len(), 0, "sc_egress (port 0) ignored");
+        let fs = recv_until_sentinel(&phy1, "scrimlet sentinel on port 1");
+        assert_eq!(fs.len(), 1, "{ethertype:#06x} out sc_egress");
+        assert_eq!(fs[0].ethertype, ethertype, "sidecar header stripped");
+        assert_eq!(fs[0].src, [1, 2, 3, 4, 5, 6], "port 1's SMAC");
+        assert_eq!(fs[0].dst, dst, "DMAC kept");
+    }
     Ok(())
 }
 
-#[test]
-fn scrimlet_mcast_nat_replicated() -> Result<(), anyhow::Error> {
-    let mut pipeline = mcast_ttl_pipeline();
-    let mut src_mac = [0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0xee];
-    src_mac.reverse();
-    pipeline.add_egress_mcast_src_mac_entry(
-        "rewrite_src_mac",
-        &1u16.to_le_bytes(),
-        &src_mac,
-        0,
-    );
-    let mut npu = SoftNpu::new(2, pipeline, false);
-    let phy0 = npu.phy(0);
-    let phy1 = npu.phy(1);
-
-    npu.run();
-
-    let probe = mcast_v4_probe("238.1.1.1", 64);
-    let frame = sidecar_wrap(1, ETHERTYPE_IPV4, &probe);
-    phy0.send(&[TxFrame::new(
-        l2_dst(phy1.mac, ETHERTYPE_IPV4, &probe),
-        ETHERTYPE_SIDECAR,
-        &frame,
-    )])?;
-    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV4, &sentinel_v4())])?;
-
-    let port1 = recv_until_sentinel(&phy1, "port 1 sentinel");
-    assert_eq!(port1.len(), 1, "one underlay copy on port 1");
-    assert_eq!(port1[0].ethertype, ETHERTYPE_IPV6, "NAT-encapsulated copy");
-    assert_eq!(
-        port1[0].src,
-        [0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0xee],
-        "port 1's SMAC"
-    );
-    assert_eq!(port1[0].dst, [0x33, 0x33, 0, 0, 0, 1], "DMAC from ff04::1");
-    assert_nat_encap(&port1[0].payload, UNDERLAY_MCAST_DST, 77);
-    assert_eq!(phy0.recv_buffer_len(), 0, "no copy back to the scrimlet");
-    Ok(())
-}
-
-fn scrimlet_mcast_ttl_pipeline_copies(
+fn scrimlet_mcast_group_copies(
     dst: Option<[u8; 6]>,
     ethertype: u16,
     probe: &[u8],
@@ -1703,34 +1634,103 @@ fn scrimlet_mcast_ttl_pipeline_copies(
 }
 
 #[test]
-fn scrimlet_mcast_bad_dst_mac_dropped() -> Result<(), anyhow::Error> {
-    let unicast = [0x02, 0, 0, 0, 0, 0x01];
+fn scrimlet_mcast_no_nat() -> Result<(), anyhow::Error> {
+    let probe = mcast_v4_probe("238.1.1.1", 64);
+    let fs = scrimlet_mcast_group_copies(None, ETHERTYPE_IPV4, &probe)?;
+    assert_eq!(fs.len(), 1, "one copy out sc_egress");
+    assert_eq!(fs[0].ethertype, ETHERTYPE_IPV4, "not NAT-encapsulated");
+    let ip = Ipv4Packet::new(&fs[0].payload).unwrap();
+    assert_eq!(
+        ip.get_destination(),
+        "238.1.1.1".parse::<Ipv4Addr>().unwrap(),
+        "original group"
+    );
+    assert_eq!(ip.get_ttl(), 64, "TTL not decremented");
 
-    let v6 = mcast_v6_probe("ff02::1", 64);
-    let fs =
-        scrimlet_mcast_ttl_pipeline_copies(Some(unicast), ETHERTYPE_IPV6, &v6)?;
-    assert!(fs.is_empty(), "ff02::1 with a unicast DMAC dropped");
-
-    let v4 = mcast_v4_probe("238.1.1.1", 64);
-    let fs =
-        scrimlet_mcast_ttl_pipeline_copies(Some(unicast), ETHERTYPE_IPV4, &v4)?;
-    assert!(fs.is_empty(), "238.1.1.1 with a unicast DMAC dropped");
+    let probe = mcast_v6_probe("ff0e::1", 64);
+    let fs = scrimlet_mcast_group_copies(None, ETHERTYPE_IPV6, &probe)?;
+    assert_eq!(fs.len(), 1, "one copy out sc_egress");
+    let ip = Ipv6Packet::new(&fs[0].payload).unwrap();
+    assert_eq!(
+        ip.get_destination(),
+        "ff0e::1".parse::<Ipv6Addr>().unwrap(),
+        "not NAT-encapsulated to the underlay group"
+    );
+    assert_eq!(ip.get_hop_limit(), 64, "hop limit not decremented");
     Ok(())
 }
 
 #[test]
-fn scrimlet_mcast_ttl_expired_dropped() -> Result<(), anyhow::Error> {
-    for (ttl, copies) in [(0, 0), (1, 0), (2, 1)] {
-        let probe = mcast_v4_probe("238.1.1.1", ttl);
-        let fs =
-            scrimlet_mcast_ttl_pipeline_copies(None, ETHERTYPE_IPV4, &probe)?;
-        assert_eq!(fs.len(), copies, "scrimlet 238.1.1.1 at TTL {ttl}");
-
-        let probe = mcast_v6_probe("ff0e::1", ttl);
-        let fs =
-            scrimlet_mcast_ttl_pipeline_copies(None, ETHERTYPE_IPV6, &probe)?;
-        assert_eq!(fs.len(), copies, "scrimlet ff0e::1 at hop limit {ttl}");
+fn scrimlet_geneve_mcast_no_repl() -> Result<(), anyhow::Error> {
+    let mut pipeline = mcast_ff0e_pipeline(&[], &[2]);
+    let mut rewrite_mac = [0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0xee];
+    rewrite_mac.reverse();
+    for port in [1u16, 2] {
+        pipeline.add_egress_mcast_src_mac_entry(
+            "rewrite_src_mac",
+            &port.to_le_bytes(),
+            &rewrite_mac,
+            0,
+        );
     }
+
+    let mut npu = SoftNpu::new(3, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+    let phy2 = npu.phy(2);
+
+    npu.run();
+
+    let ip_data = geneve_mcast_v4_pkt_repl(
+        "fd00:1::1",
+        "ff0e::1",
+        "10.0.0.1",
+        "238.1.1.1",
+        Some(MCAST_TAG_UNDERLAY_EXTERNAL),
+    );
+    let dst = l2_dst(phy1.mac, ETHERTYPE_IPV6, &ip_data);
+    let frame = sidecar_wrap(1, ETHERTYPE_IPV6, &ip_data);
+    let port1_sentinel = sidecar_wrap(1, ETHERTYPE_IPV4, &sentinel_v4());
+    let port2_sentinel = sidecar_wrap(2, ETHERTYPE_IPV4, &sentinel_v4());
+    phy0.send(&[
+        TxFrame::new(dst, ETHERTYPE_SIDECAR, &frame),
+        TxFrame::new(phy1.mac, ETHERTYPE_SIDECAR, &port1_sentinel),
+        TxFrame::new(phy2.mac, ETHERTYPE_SIDECAR, &port2_sentinel),
+    ])?;
+
+    let port1 = recv_until_sentinel(&phy1, "scrimlet sentinel on port 1");
+    assert_eq!(port1.len(), 1, "one copy out sc_egress");
+    assert_eq!(
+        port1[0].ethertype, ETHERTYPE_IPV6,
+        "sidecar header stripped"
+    );
+    assert_eq!(port1[0].src, phy0.mac, "scrimlet src MAC kept");
+    assert_eq!(port1[0].dst, dst, "scrimlet dst MAC kept");
+    assert_eq!(port1[0].vid, None, "no VLAN added");
+    assert_eq!(
+        port1[0].payload, ip_data,
+        "Geneve encapsulation and TTLs kept"
+    );
+
+    let port2 = recv_until_sentinel(&phy2, "scrimlet sentinel on port 2");
+    assert!(port2.is_empty(), "no copy on the replication group port");
+    assert_eq!(phy0.recv_buffer_len(), 0, "no copy back to the scrimlet");
+    Ok(())
+}
+
+#[test]
+fn scrimlet_mcast_dst_mac_unchecked() -> Result<(), anyhow::Error> {
+    let unicast = [0x02, 0, 0, 0, 0, 0x01];
+
+    let v6 = mcast_v6_probe("ff02::1", 64);
+    let fs = scrimlet_mcast_group_copies(Some(unicast), ETHERTYPE_IPV6, &v6)?;
+    assert_eq!(fs.len(), 1, "ff02::1 w/ a unicast DMAC out sc_egress");
+    assert_eq!(fs[0].dst, unicast, "DMAC kept");
+
+    let v4 = mcast_v4_probe("238.1.1.1", 64);
+    let fs = scrimlet_mcast_group_copies(Some(unicast), ETHERTYPE_IPV4, &v4)?;
+    assert_eq!(fs.len(), 1, "238.1.1.1 w/ a unicast DMAC out sc_egress");
+    assert_eq!(fs[0].dst, unicast, "DMAC kept");
     Ok(())
 }
 
@@ -3672,7 +3672,7 @@ fn resolver_miss() -> Result<(), anyhow::Error> {
     let probe4 = v4_probe(SRC4, DST4, 255);
     let probe4_desc = format!("IPv4 packet (dst={DST4}, src={SRC4}, ttl=255)");
 
-    // Send IPv4 probe from port 1 so scrimlet (port 0) can receive it.
+    // Send IPv4 probe from port 2 so scrimlet (port 0) can receive it.
     phy2.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV4, &probe4)])?;
 
     wait_for(
@@ -3680,9 +3680,18 @@ fn resolver_miss() -> Result<(), anyhow::Error> {
         &format!("scrimlet should receive {probe4_desc}"),
     );
     let maybe_sidecar = phy0.recv().remove(0);
+    assert_eq!(
+        maybe_sidecar.ethertype, ETHERTYPE_SIDECAR,
+        "{probe4_desc} should arrive with sidecar EtherType"
+    );
     let maybe_arp_needed =
         SidecarPacket::new(&maybe_sidecar.payload).expect("sidecar header");
 
+    assert_eq!(
+        maybe_arp_needed.get_sc_ether_type(),
+        ETHERTYPE_IPV4,
+        "{probe4_desc} should retain its IPv4 EtherType"
+    );
     assert_eq!(
         maybe_arp_needed.get_sc_code(),
         SC_ARP_NEEDED,
@@ -3711,7 +3720,7 @@ fn resolver_miss() -> Result<(), anyhow::Error> {
     let probe6_desc =
         format!("IPv6 packet (dst={DST6}, src={SRC6}, hop-limit=255)");
 
-    // Send IPv6 probe from port 1 so scrimlet (port 0) can receive it.
+    // Send IPv6 probe from port 2 so scrimlet (port 0) can receive it.
     phy2.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV6, &probe6)])?;
 
     wait_for(
@@ -3719,9 +3728,18 @@ fn resolver_miss() -> Result<(), anyhow::Error> {
         &format!("scrimlet should receive {probe6_desc}"),
     );
     let maybe_sidecar = phy0.recv().remove(0);
+    assert_eq!(
+        maybe_sidecar.ethertype, ETHERTYPE_SIDECAR,
+        "{probe6_desc} should arrive with sidecar EtherType"
+    );
     let maybe_ndp_needed =
         SidecarPacket::new(&maybe_sidecar.payload).expect("sidecar header");
 
+    assert_eq!(
+        maybe_ndp_needed.get_sc_ether_type(),
+        ETHERTYPE_IPV6,
+        "{probe6_desc} should retain its IPv6 EtherType"
+    );
     assert_eq!(
         maybe_ndp_needed.get_sc_code(),
         SC_NEIGHBOR_NEEDED,
@@ -3752,8 +3770,8 @@ fn resolver_miss_pipeline() -> main_pipeline {
     pipeline
 }
 
-// A packet routed back out its ingress port is dropped regardless of the action
-// that control resolver takes
+// A packet routed back out of its ingress port is dropped before the control's
+// resolver runs (it is never punted to userspace).
 #[test]
 fn resolver_miss_reflection_dropped() -> Result<(), anyhow::Error> {
     let mut pipeline = resolver_miss_pipeline();
