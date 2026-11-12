@@ -278,7 +278,7 @@ fn pipeline_init(pipeline: &mut main_pipeline) {
     );
 
     // boundary services loopback ip entry
-    let (key_buf, param_buf) = local6_entry("fd00:99::1");
+    let (key_buf, param_buf) = local6_entry(0, "fd00:99::1");
     pipeline.add_ingress_local_local_v6_entry("local", &key_buf, &param_buf, 0);
 
     // resolver entry for upstream gateway
@@ -959,7 +959,7 @@ fn ipv6_ttl1_dropped() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn boundary_services_v6(inner_dst: &str, hop_limit: u8) -> Vec<u8> {
+fn boundary_services_v6(tep: &str, inner_dst: &str, hop_limit: u8) -> Vec<u8> {
     let inner_ip = v6_probe("fd00:2::1", inner_dst, hop_limit);
     let mut eth_data = vec![0u8; 14 + inner_ip.len()];
     let mut eth = MutableEthernetPacket::new(&mut eth_data).unwrap();
@@ -967,7 +967,7 @@ fn boundary_services_v6(inner_dst: &str, hop_limit: u8) -> Vec<u8> {
     eth.set_source(MacAddr::new(0x33, 0x33, 0x33, 0x44, 0x44, 0x44));
     eth.set_ethertype(EtherType(ETHERTYPE_IPV6));
     eth.set_payload(&inner_ip);
-    wrap_geneve("fd00:1::1", "fd00:99::1", &eth_data, None)
+    wrap_geneve("fd00:1::1", tep, &eth_data, None)
 }
 
 #[test]
@@ -981,7 +981,7 @@ fn boundary_services_hop_limit0_to_scrimlet() -> Result<(), anyhow::Error> {
 
     npu.run();
 
-    let ip_data = boundary_services_v6("fd00:1::5", 0);
+    let ip_data = boundary_services_v6("fd00:99::1", "fd00:1::5", 0);
     phy1.send(&[TxFrame::new(
         l2_dst(phy0.mac, ETHERTYPE_IPV6, &ip_data),
         ETHERTYPE_IPV6,
@@ -1033,7 +1033,7 @@ fn boundary_services_hop_limit0_nonzero_port_dropped(
 
     npu.run();
 
-    let ip_data = boundary_services_v6("fd00:3::99", 0);
+    let ip_data = boundary_services_v6("fd00:99::1", "fd00:3::99", 0);
     phy0.send(&[TxFrame::new(
         l2_dst(phy1.mac, ETHERTYPE_IPV6, &ip_data),
         ETHERTYPE_IPV6,
@@ -3451,9 +3451,21 @@ fn router_idx_entry(
     idx: u16,
     slots: u8,
 ) -> (Vec<u8>, Vec<u8>) {
-    let mut key_buf = match dst.parse().unwrap() {
-        IpAddr::V4(a) => a.octets().to_vec(),
-        IpAddr::V6(a) => a.octets().to_vec(),
+    router_idx_entry_rid(0, dst, prefix_len, idx, slots)
+}
+
+// Create an entry for the multipath cidr -> index table of a specific router
+fn router_idx_entry_rid(
+    rid: u8,
+    dst: &str,
+    prefix_len: u8,
+    idx: u16,
+    slots: u8,
+) -> (Vec<u8>, Vec<u8>) {
+    let mut key_buf = vec![rid];
+    match dst.parse().unwrap() {
+        IpAddr::V4(a) => key_buf.extend_from_slice(&a.octets()),
+        IpAddr::V6(a) => key_buf.extend_from_slice(&a.octets()),
     };
     key_buf.push(prefix_len);
 
@@ -3615,12 +3627,12 @@ fn ipv6_mcast_l3(src: &str, dst: &str) -> Vec<u8> {
     ip_data
 }
 
-fn local6_entry(addr: &str) -> (Vec<u8>, Vec<u8>) {
+fn local6_entry(rid: u8, addr: &str) -> (Vec<u8>, Vec<u8>) {
     let addr: Ipv6Addr = addr.parse().unwrap();
     let mut key_buf = addr.octets().to_vec();
     key_buf.reverse();
 
-    (key_buf, Vec::new())
+    (key_buf, vec![rid])
 }
 
 fn resolver4_entry(addr: &str, mac: [u8; 6]) -> (Vec<u8>, Vec<u8>) {
@@ -3924,4 +3936,121 @@ fn geneve_mcast_v6_inner_pkt(
 ) -> Vec<u8> {
     let eth = inner_mcast_v6_frame(inner_src, inner_dst);
     wrap_geneve(outer_src, outer_dst, &eth, None)
+}
+
+// Build a geneve-encapped ipv4 packet destined to the given TEP address,
+// returning the outer ipv6 packet bytes.
+fn geneve_encapped_v4(tep: &str, inner_dst: &str) -> Vec<u8> {
+    let mut ip_data = vec![0u8; 28];
+    let mut ip = MutableIpv4Packet::new(&mut ip_data).unwrap();
+    ip.set_version(4);
+    ip.set_header_length(5);
+    ip.set_total_length(28);
+    ip.set_source("1.2.3.4".parse().unwrap());
+    ip.set_destination(inner_dst.parse().unwrap());
+    ip.set_next_level_protocol(IpNextHeaderProtocol::new(17));
+    ip.set_ttl(64);
+
+    let mut eth_data = vec![0u8; 14 + ip_data.len()];
+    let mut eth = MutableEthernetPacket::new(&mut eth_data).unwrap();
+    eth.set_destination(MacAddr::new(0x11, 0x11, 0x11, 0x22, 0x22, 0x22));
+    eth.set_source(MacAddr::new(0x33, 0x33, 0x33, 0x44, 0x44, 0x44));
+    eth.set_ethertype(EtherType(ETHERTYPE_IPV4));
+    eth.set_payload(&ip_data);
+    wrap_geneve("fd00:1::1", tep, &eth_data, None)
+}
+
+#[test]
+fn endpoint_selects_route_table() -> Result<(), anyhow::Error> {
+    let mut pipeline = main_pipeline::new(3);
+
+    // router 1: endpoint fd00:99::2, 8.8.8.0/24 and 2001:db8::/64 out port 1
+    let (key_buf, param_buf) = local6_entry(1, "fd00:99::2");
+    pipeline.add_ingress_local_local_v6_entry("local", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_idx_entry_rid(1, "8.8.8.0", 24, 4, 1);
+    pipeline
+        .add_ingress_router_v4_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_forward_entry(4, "1.2.3.1", 1);
+    pipeline.add_ingress_router_v4_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
+    let (key_buf, param_buf) = router_idx_entry_rid(1, "2001:db8::", 64, 4, 1);
+    pipeline
+        .add_ingress_router_v6_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_forward_entry(4, "fe80::1", 1);
+    pipeline.add_ingress_router_v6_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
+
+    // router 2: endpoint fd00:99::3, 0.0.0.0/0 and ::/0 out port 2
+    let (key_buf, param_buf) = local6_entry(2, "fd00:99::3");
+    pipeline.add_ingress_local_local_v6_entry("local", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_idx_entry_rid(2, "0.0.0.0", 0, 5, 1);
+    pipeline
+        .add_ingress_router_v4_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_forward_entry(5, "1.2.3.1", 2);
+    pipeline.add_ingress_router_v4_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
+    let (key_buf, param_buf) = router_idx_entry_rid(2, "::", 0, 5, 1);
+    pipeline
+        .add_ingress_router_v6_idx_rtr_entry("index", &key_buf, &param_buf, 0);
+    let (key_buf, param_buf) = router_forward_entry(5, "fe80::1", 2);
+    pipeline.add_ingress_router_v6_route_rtr_entry(
+        "forward", &key_buf, &param_buf, 0,
+    );
+
+    let (key_buf, param_buf) =
+        resolver4_entry("1.2.3.1", [8, 9, 10, 11, 12, 13]);
+    pipeline.add_ingress_resolver_resolver_v4_entry(
+        "rewrite_dst",
+        &key_buf,
+        &param_buf,
+        0,
+    );
+    let (key_buf, param_buf) =
+        resolver6_entry("fe80::1", [20, 21, 22, 23, 24, 25]);
+    pipeline.add_ingress_resolver_resolver_v6_entry(
+        "rewrite_dst",
+        &key_buf,
+        &param_buf,
+        0,
+    );
+
+    let mut npu = SoftNpu::new(3, pipeline, false);
+    let phy0 = npu.phy(0);
+    let phy1 = npu.phy(1);
+    let phy2 = npu.phy(2);
+
+    npu.run();
+
+    // 8.8.8.8 through router 1 should come out phy1
+    let pkt = geneve_encapped_v4("fd00:99::2", "8.8.8.8");
+    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV6, &pkt)])?;
+    wait_for(|| phy1.recv_buffer_len() > 0, "router 1 frame on port 1");
+    let fs = phy1.recv();
+    assert_eq!(fs.len(), 1);
+
+    // 8.8.8.8 through router 2 should come out phy2
+    let pkt = geneve_encapped_v4("fd00:99::3", "8.8.8.8");
+    phy0.send(&[TxFrame::new(phy2.mac, ETHERTYPE_IPV6, &pkt)])?;
+    wait_for(|| phy2.recv_buffer_len() > 0, "router 2 frame on port 2");
+    let fs = phy2.recv();
+    assert_eq!(fs.len(), 1);
+
+    // 2001:db8::1 through router 1 should come out phy1
+    let pkt = boundary_services_v6("fd00:99::2", "2001:db8::1", 64);
+    phy0.send(&[TxFrame::new(phy1.mac, ETHERTYPE_IPV6, &pkt)])?;
+    wait_for(|| phy1.recv_buffer_len() > 0, "router 1 v6 frame on port 1");
+    let fs = phy1.recv();
+    assert_eq!(fs.len(), 1);
+
+    // 2001:db8::1 through router 2 should come out phy2
+    let pkt = boundary_services_v6("fd00:99::3", "2001:db8::1", 64);
+    phy0.send(&[TxFrame::new(phy2.mac, ETHERTYPE_IPV6, &pkt)])?;
+    wait_for(|| phy2.recv_buffer_len() > 0, "router 2 v6 frame on port 2");
+    let fs = phy2.recv();
+    assert_eq!(fs.len(), 1);
+
+    Ok(())
 }
